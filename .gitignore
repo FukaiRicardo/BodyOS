@@ -1,0 +1,21 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+.turbo/
+
+# Build
+dist/
+build/
+.expo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

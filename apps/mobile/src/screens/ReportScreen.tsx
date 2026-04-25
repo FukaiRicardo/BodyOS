@@ -1,4 +1,4 @@
-// Tela de relatório diário — coleta dados de aderência, treino, humor, energia e hidratação
+// Tela de relatório diário — coleta dados de aderência, treino, humor e energia
 // Esses dados alimentam o sistema de análise e feedback da IA
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useState } from 'react'
@@ -30,9 +30,6 @@ const MOODS = [
 // Escala de energia de 1 a 5 — usada pela IA para detectar overtraining ou falta de recuperação
 const ENERGY_LEVELS = [1, 2, 3, 4, 5]
 
-// Opções rápidas de hidratação em ml — evita digitação manual para valores comuns
-const HYDRATION_OPTIONS = [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
-
 export default function ReportScreen() {
   const navigation = useNavigation()
   const route = useRoute<Route>()
@@ -46,7 +43,6 @@ export default function ReportScreen() {
     sleep_hours: '',
     mood: '',
     weight_kg: '',
-    water_ml: 2000, // hidratação em ml — padrão 2L
     adherence_percent: 100,
     meals_logged: [] as { name: string; calories: number; protein: number }[],
   })
@@ -80,8 +76,6 @@ export default function ReportScreen() {
         energy_level: form.energy_level,
         sleep_hours: form.sleep_hours ? Number(form.sleep_hours) : undefined,
         mood: form.mood,
-        // Hidratação incluída no relatório para análise da IA
-        water_ml: form.water_ml,
         adherence_percent: form.adherence_percent,
       }
 
@@ -112,11 +106,6 @@ export default function ReportScreen() {
     green: '#00FF87',
     yellow: '#F59E0B',
     red: '#F87171',
-  }
-
-  // Converte ml para exibição amigável — acima de 1000ml mostra em litros
-  function formatWater(ml: number): string {
-    return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`
   }
 
   return (
@@ -204,41 +193,6 @@ export default function ReportScreen() {
               </View>
             </View>
 
-            {/* Hidratação — seletor visual com opções rápidas + indicador de progresso */}
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>
-                💧 Hidratação: <Text style={s.hydrationValue}>{formatWater(form.water_ml)}</Text>
-              </Text>
-
-              {/* Barra de progresso visual — referência de 3L como meta padrão */}
-              <View style={s.hydrationBar}>
-                <View style={[s.hydrationFill, {
-                  width: `${Math.min((form.water_ml / 3000) * 100, 100)}%`,
-                  backgroundColor: form.water_ml >= 2000 ? '#00FF87' : form.water_ml >= 1000 ? '#F59E0B' : '#F87171',
-                }]} />
-              </View>
-              <Text style={s.hydrationHint}>
-                {form.water_ml < 1500 ? '⚠️ Abaixo do mínimo recomendado' :
-                  form.water_ml < 2500 ? '✅ Hidratação adequada' :
-                    '💪 Excelente hidratação!'}
-              </Text>
-
-              {/* Grid de opções rápidas — 2 linhas de 4 botões */}
-              <View style={s.hydrationGrid}>
-                {HYDRATION_OPTIONS.map(ml => (
-                  <TouchableOpacity
-                    key={ml}
-                    style={[s.hydrationBtn, form.water_ml === ml && s.hydrationBtnActive]}
-                    onPress={() => setForm(f => ({ ...f, water_ml: ml }))}
-                  >
-                    <Text style={[s.hydrationBtnText, form.water_ml === ml && s.hydrationBtnTextActive]}>
-                      {formatWater(ml)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             {/* Dados físicos do dia */}
             <View style={s.section}>
               <Text style={s.sectionTitle}>Dados do dia</Text>
@@ -268,11 +222,9 @@ export default function ReportScreen() {
               </View>
             </View>
 
-            {/* Aderência ao plano */}
+            {/* Aderência ao plano — slider simplificado com botões */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>
-                Aderência ao plano: <Text style={s.adherenceValue}>{form.adherence_percent}%</Text>
-              </Text>
+              <Text style={s.sectionTitle}>Aderência ao plano: <Text style={s.adherenceValue}>{form.adherence_percent}%</Text></Text>
               <View style={s.adherenceRow}>
                 {[25, 50, 75, 100].map(v => (
                   <TouchableOpacity
@@ -301,6 +253,8 @@ export default function ReportScreen() {
         {/* Resultado do feedback da IA */}
         {feedback && (
           <View style={s.feedbackContainer}>
+
+            {/* Score geral com cor dinâmica baseada no alert_level */}
             <View style={[s.scoreCard, { borderColor: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
               <Text style={s.scoreEmoji}>{feedback.clientFeedback?.emoji_summary}</Text>
               <Text style={[s.scoreValue, { color: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
@@ -309,12 +263,14 @@ export default function ReportScreen() {
               <Text style={s.scoreLabel}>Score do dia</Text>
             </View>
 
+            {/* Mensagem motivacional personalizada */}
             <View style={s.messageCard}>
               <Text style={s.messageSubject}>{feedback.clientFeedback?.subject}</Text>
               <Text style={s.messageGreeting}>{feedback.clientFeedback?.greeting}</Text>
               <Text style={s.messageBody}>{feedback.clientFeedback?.body}</Text>
             </View>
 
+            {/* Pontos positivos */}
             {feedback.analysis?.highlights?.length > 0 && (
               <View style={s.card}>
                 <Text style={s.cardTitle}>✅ Destaques</Text>
@@ -324,6 +280,7 @@ export default function ReportScreen() {
               </View>
             )}
 
+            {/* Pontos de atenção */}
             {feedback.analysis?.attention_points?.length > 0 && (
               <View style={[s.card, s.cardWarning]}>
                 <Text style={s.cardTitle}>⚠️ Pontos de atenção</Text>
@@ -333,6 +290,7 @@ export default function ReportScreen() {
               </View>
             )}
 
+            {/* Dicas para amanhã */}
             {feedback.analysis?.tomorrow_tips?.length > 0 && (
               <View style={s.card}>
                 <Text style={s.cardTitle}>🎯 Para amanhã</Text>
@@ -342,6 +300,7 @@ export default function ReportScreen() {
               </View>
             )}
 
+            {/* Análises detalhadas por área */}
             {[
               { title: '🥗 Nutrição', text: feedback.analysis?.nutrition_feedback },
               { title: '🏋️ Treino', text: feedback.analysis?.workout_feedback },
@@ -353,10 +312,12 @@ export default function ReportScreen() {
               </View>
             ) : null)}
 
+            {/* Encerramento motivacional */}
             <View style={s.closingCard}>
               <Text style={s.closingText}>{feedback.clientFeedback?.closing}</Text>
             </View>
 
+            {/* Botão para novo relatório */}
             <TouchableOpacity style={s.newReportBtn} onPress={() => setFeedback(null)}>
               <Text style={s.newReportBtnText}>📝 Novo relatório</Text>
             </TouchableOpacity>
@@ -364,6 +325,7 @@ export default function ReportScreen() {
         )}
       </ScrollView>
 
+      {/* Botão de envio — só aparece enquanto preenche o formulário */}
       {!loading && !feedback && (
         <View style={s.footer}>
           <TouchableOpacity style={s.submitBtn} onPress={submitReport}>
@@ -405,16 +367,6 @@ const s = StyleSheet.create({
   moodEmoji: { fontSize: 22 },
   moodLabel: { fontSize: 10, color: '#A0A0B0' },
   moodLabelActive: { color: '#00FF87' },
-  // Hidratação
-  hydrationValue: { color: '#60A5FA' },
-  hydrationBar: { height: 8, backgroundColor: '#1A1A2E', borderRadius: 4, overflow: 'hidden' },
-  hydrationFill: { height: 8, borderRadius: 4 },
-  hydrationHint: { fontSize: 12, color: '#A0A0B0' },
-  hydrationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  hydrationBtn: { width: '23%', backgroundColor: '#1A1A2E', borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  hydrationBtnActive: { borderColor: '#60A5FA', backgroundColor: '#0D1A2E' },
-  hydrationBtnText: { color: '#A0A0B0', fontWeight: '600', fontSize: 13 },
-  hydrationBtnTextActive: { color: '#60A5FA' },
   inputsRow: { flexDirection: 'row', gap: 12 },
   inputWrap: { flex: 1, gap: 8 },
   inputLabel: { fontSize: 13, color: '#A0A0B0', fontWeight: '600' },

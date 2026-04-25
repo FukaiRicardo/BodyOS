@@ -70,6 +70,6 @@ app.post('/protocol/adapt', async (req: Request, res: Response) => {
   }
 })
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`AI service rodando na porta ${PORT}`)
 })

@@ -1,17 +1,17 @@
 // Tela de plano gerado pela IA — exibe dieta, treino e hidratação mínima
 // Tabs separadas para nutrição e treino evitam scroll excessivo em tela única
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
 const AI_SERVICE_URL = 'http://192.168.0.205:3001'
 
-// Ícones por tipo de refeição — mapeamento visual para facilitar identificação rápida
 const mealIcon: Record<string, string> = {
   breakfast: '🌅',
   lunch: '☀️',
@@ -19,7 +19,6 @@ const mealIcon: Record<string, string> = {
   snack: '🍎',
 }
 
-// Nome dos dias da semana em PT-BR indexado por número (0 = domingo)
 const dayName: Record<number, string> = {
   0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
 }
@@ -28,14 +27,32 @@ export default function PlanScreen() {
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const profile = route.params?.profile
+  const { savePlan, loadLatestPlan } = useDatabase()
 
   const [loading, setLoading] = useState(false)
-  const [plan, setPlan] = useState<{ nutrition?: any; workout?: any } | null>(null)
+  const [loadingExisting, setLoadingExisting] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [plan, setPlan] = useState<{ nutrition?: any; workout?: any; ai_model?: string } | null>(null)
   const [tab, setTab] = useState<'nutrition' | 'workout'>('nutrition')
   const [error, setError] = useState('')
 
-  // Gera plano usando os dados reais do perfil preenchido no onboarding
-  // Chamadas paralelas para nutrição e treino reduzem tempo de espera
+  // Carrega plano existente ao abrir a tela
+  useEffect(() => {
+    async function fetchExistingPlan() {
+      setLoadingExisting(true)
+      const { data } = await loadLatestPlan()
+      if (data) {
+        setPlan({
+          nutrition: data.nutrition_plan,
+          workout: data.workout_plan,
+          ai_model: data.ai_model ?? undefined,
+        })
+      }
+      setLoadingExisting(false)
+    }
+    fetchExistingPlan()
+  }, [])
+
   async function generatePlan() {
     setLoading(true)
     setError('')
@@ -66,7 +83,20 @@ export default function PlanScreen() {
           }),
         }).then(r => r.json()),
       ])
-      setPlan({ nutrition: nutrition.data, workout: workout.data })
+
+      const newPlan = {
+        nutrition: nutrition.data,
+        workout: workout.data,
+        ai_model: nutrition.ai_model ?? 'groq',
+      }
+
+      setPlan(newPlan)
+
+      // Persiste no Supabase
+      setSaving(true)
+      await savePlan(newPlan.nutrition, newPlan.workout, newPlan.ai_model)
+      setSaving(false)
+
     } catch (e) {
       setError('Erro ao conectar com o serviço de IA.')
     } finally {
@@ -74,15 +104,12 @@ export default function PlanScreen() {
     }
   }
 
-  // Converte ml para exibição amigável — acima de 1000ml mostra em litros
   function formatWater(ml: number): string {
     return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`
   }
 
   return (
     <SafeAreaView style={s.container}>
-
-      {/* Header com botão voltar */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={s.back}>← Voltar</Text>
@@ -91,7 +118,6 @@ export default function PlanScreen() {
         <View style={{ width: 60 }} />
       </View>
 
-      {/* Tabs — só aparecem após o plano ser gerado */}
       {plan && (
         <View style={s.tabs}>
           <TouchableOpacity
@@ -111,8 +137,16 @@ export default function PlanScreen() {
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Estado vazio — antes de gerar */}
-        {!plan && !loading && (
+        {/* Carregando plano existente */}
+        {loadingExisting && (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color="#00FF87" />
+            <Text style={s.loadingText}>Carregando seu plano...</Text>
+          </View>
+        )}
+
+        {/* Estado vazio */}
+        {!plan && !loading && !loadingExisting && (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🤖</Text>
             <Text style={s.emptyTitle}>Gerar seu plano</Text>
@@ -120,11 +154,19 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* Loading */}
+        {/* Gerando plano */}
         {loading && (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF87" />
             <Text style={s.loadingText}>Gerando seu plano personalizado...</Text>
+          </View>
+        )}
+
+        {/* Salvando */}
+        {saving && (
+          <View style={s.savingBanner}>
+            <ActivityIndicator size="small" color="#00FF87" />
+            <Text style={s.savingText}>Salvando plano...</Text>
           </View>
         )}
 
@@ -133,8 +175,6 @@ export default function PlanScreen() {
         {/* ── ABA NUTRIÇÃO ─────────────────────────────────── */}
         {plan && tab === 'nutrition' && (
           <View style={s.content}>
-
-            {/* Cards de macros — grid de 4 colunas */}
             <View style={s.macroRow}>
               {[
                 { label: 'Calorias', value: plan.nutrition.daily_calories, unit: 'kcal', color: '#00FF87' },
@@ -150,7 +190,6 @@ export default function PlanScreen() {
               ))}
             </View>
 
-            {/* Hidratação mínima diária — destacada separadamente para dar visibilidade */}
             {plan.nutrition.water_ml && (
               <View style={s.hydrationCard}>
                 <Text style={s.hydrationEmoji}>💧</Text>
@@ -164,7 +203,6 @@ export default function PlanScreen() {
               </View>
             )}
 
-            {/* Lista de refeições */}
             <Text style={s.sectionTitle}>Refeições</Text>
             {plan.nutrition.meals?.map((meal: any, i: number) => (
               <View key={i} style={s.mealCard}>
@@ -184,7 +222,6 @@ export default function PlanScreen() {
               </View>
             ))}
 
-            {/* Suplementos — só renderiza se houver dados */}
             {plan.nutrition.supplements?.length > 0 && (
               <>
                 <Text style={s.sectionTitle}>Suplementos</Text>
@@ -197,7 +234,6 @@ export default function PlanScreen() {
               </>
             )}
 
-            {/* Notas do nutricionista */}
             {plan.nutrition.nutritionist_notes && (
               <View style={s.notesCard}>
                 <Text style={s.notesTitle}>📝 Notas do Nutricionista</Text>
@@ -210,14 +246,11 @@ export default function PlanScreen() {
         {/* ── ABA TREINO ───────────────────────────────────── */}
         {plan && tab === 'workout' && (
           <View style={s.content}>
-
-            {/* Cabeçalho do plano de treino com metodologia */}
             <View style={s.workoutHeader}>
               <Text style={s.workoutName}>{plan.workout.name}</Text>
               <Text style={s.workoutMeta}>{plan.workout.duration_weeks} semanas · {plan.workout.methodology}</Text>
             </View>
 
-            {/* Sessões de treino por dia da semana */}
             {plan.workout.sessions?.map((session: any, i: number) => (
               <View key={i} style={s.sessionCard}>
                 <View style={s.sessionHeader}>
@@ -229,8 +262,6 @@ export default function PlanScreen() {
                     <Text style={s.sessionMeta}>{session.focus} · {session.estimated_minutes} min</Text>
                   </View>
                 </View>
-
-                {/* Exercícios com dica de técnica */}
                 {session.exercises?.map((ex: any, j: number) => (
                   <View key={j} style={s.exerciseRow}>
                     <Text style={s.exerciseName}>{ex.name}</Text>
@@ -241,7 +272,6 @@ export default function PlanScreen() {
               </View>
             ))}
 
-            {/* Notas do personal trainer */}
             {plan.workout.trainer_notes && (
               <View style={s.notesCard}>
                 <Text style={s.notesTitle}>📝 Notas do Personal</Text>
@@ -252,8 +282,7 @@ export default function PlanScreen() {
         )}
       </ScrollView>
 
-      {/* Botão fixo no rodapé — gera ou regenera o plano */}
-      {!loading && (
+      {!loading && !loadingExisting && (
         <View style={s.footer}>
           <TouchableOpacity style={s.btn} onPress={generatePlan}>
             <Text style={s.btnText}>{plan ? '🔄 Gerar novo plano' : '✨ Gerar meu plano'}</Text>
@@ -282,13 +311,14 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
   loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
   loadingText: { color: '#A0A0B0', fontSize: 16 },
+  savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
+  savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
   macroRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 12, alignItems: 'center' },
   macroValue: { fontSize: 18, fontWeight: '800' },
   macroUnit: { fontSize: 10, color: '#A0A0B0' },
   macroLabel: { fontSize: 11, color: '#A0A0B0', marginTop: 2 },
-  // Card de hidratação com borda azul para diferenciar dos macros
   hydrationCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#0D1A2E', borderRadius: 14, padding: 16, borderLeftWidth: 3, borderLeftColor: '#60A5FA' },
   hydrationEmoji: { fontSize: 32 },
   hydrationTitle: { fontSize: 13, color: '#A0A0B0', marginBottom: 4 },

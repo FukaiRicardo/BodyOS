@@ -9,6 +9,48 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+// Tipos do banco de dados
+export type Profile = {
+  id: string
+  email: string | null
+  goal: string
+  fitness_level: string
+  weekly_days: number
+  age: number | null
+  gender: string | null
+  height_cm: number | null
+  current_weight_kg: number | null
+  target_weight_kg: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type Plan = {
+  id: string
+  user_id: string
+  nutrition_plan: any
+  workout_plan: any
+  ai_model: string | null
+  created_at: string
+}
+
+export type Report = {
+  id: string
+  user_id: string
+  date: string
+  workout_completed: boolean
+  workout_notes: string | null
+  energy_level: number
+  sleep_hours: number | null
+  mood: string | null
+  weight_kg: number | null
+  water_ml: number | null
+  adherence_percent: number
+  analysis: any
+  feedback: any
+  created_at: string
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,

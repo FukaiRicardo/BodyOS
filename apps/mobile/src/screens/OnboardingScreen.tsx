@@ -1,9 +1,10 @@
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 
@@ -32,7 +33,9 @@ const DAYS = [3, 4, 5, 6]
 
 export default function OnboardingScreen() {
   const navigation = useNavigation<Nav>()
+  const { saveProfile } = useDatabase()
   const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     goal: '',
     fitness_level: '',
@@ -44,9 +47,24 @@ export default function OnboardingScreen() {
     height_cm: '',
   })
 
-  function next() {
-    if (step < STEPS.length - 1) setStep(s => s + 1)
-    else navigation.navigate('Home', { profile: form } as any)
+  async function next() {
+    if (step < STEPS.length - 1) {
+      setStep(s => s + 1)
+    } else {
+      setSaving(true)
+      await saveProfile({
+        goal: form.goal,
+        fitness_level: form.fitness_level,
+        weekly_days: form.weekly_days,
+        age: form.age ? Number(form.age) : null,
+        gender: form.gender || null,
+        height_cm: form.height_cm ? Number(form.height_cm) : null,
+        current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
+        target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
+      })
+      setSaving(false)
+      navigation.navigate('Home', { profile: form } as any)
+    }
   }
 
   function back() {
@@ -64,7 +82,6 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Progress bar */}
       {step > 0 && (
         <View style={s.progressWrap}>
           <View style={s.progressBg}>
@@ -147,7 +164,6 @@ export default function OnboardingScreen() {
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>Seus dados corporais</Text>
             <Text style={s.stepSubtitle}>Usados para calcular suas calorias e macros ideais</Text>
-
             <View style={s.genderRow}>
               {['Masculino', 'Feminino'].map(g => (
                 <TouchableOpacity
@@ -161,7 +177,6 @@ export default function OnboardingScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-
             {[
               { label: 'Idade', key: 'age', placeholder: 'ex: 28', unit: 'anos' },
               { label: 'Altura', key: 'height_cm', placeholder: 'ex: 178', unit: 'cm' },
@@ -223,21 +238,23 @@ export default function OnboardingScreen() {
 
       </ScrollView>
 
-      {/* Footer buttons */}
       <View style={s.footer}>
         {step > 0 && (
-          <TouchableOpacity style={s.btnBack} onPress={back}>
+          <TouchableOpacity style={s.btnBack} onPress={back} disabled={saving}>
             <Text style={s.btnBackText}>← Voltar</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[s.btnNext, !canNext() && s.btnNextDisabled, step === 0 && s.btnNextFull]}
+          style={[s.btnNext, (!canNext() || saving) && s.btnNextDisabled, step === 0 && s.btnNextFull]}
           onPress={next}
-          disabled={!canNext()}
+          disabled={!canNext() || saving}
         >
-          <Text style={s.btnNextText}>
-            {step === 0 ? 'Começar agora' : step === STEPS.length - 1 ? '🚀 Gerar meu protocolo' : 'Continuar →'}
-          </Text>
+          {saving
+            ? <ActivityIndicator color="#0A0A0F" />
+            : <Text style={s.btnNextText}>
+                {step === 0 ? 'Começar agora' : step === STEPS.length - 1 ? '🚀 Gerar meu protocolo' : 'Continuar →'}
+              </Text>
+          }
         </TouchableOpacity>
       </View>
     </SafeAreaView>

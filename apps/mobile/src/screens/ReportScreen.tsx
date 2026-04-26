@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
 
 type Route = RouteProp<RootStackParamList, 'Report'>
 
@@ -32,6 +33,7 @@ const ENERGY_LEVELS = [1, 2, 3, 4, 5]
 
 export default function ReportScreen() {
   const navigation = useNavigation()
+  const { saveReport } = useDatabase()
   const route = useRoute<Route>()
   const profile = route.params?.profile
 
@@ -62,13 +64,15 @@ export default function ReportScreen() {
     setError('')
 
     try {
+      const today = new Date().toISOString().split('T')[0]
+
       const report = {
         user_profile: {
           goal: profile?.goal ?? 'muscle_gain',
           fitness_level: profile?.fitness_level ?? 'intermediate',
           weekly_days: profile?.weekly_days ?? 4,
         },
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         weight_kg: form.weight_kg ? Number(form.weight_kg) : undefined,
         meals_logged: form.meals_logged,
         workout_completed: form.workout_completed,
@@ -79,7 +83,6 @@ export default function ReportScreen() {
         adherence_percent: form.adherence_percent,
       }
 
-      // Chamadas paralelas — análise geral + feedback personalizado simultâneos
       const [analysis, clientFeedback] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/report/analyze`, {
           method: 'POST',
@@ -93,7 +96,24 @@ export default function ReportScreen() {
         }).then(r => r.json()),
       ])
 
-      setFeedback({ analysis: analysis.data, clientFeedback: clientFeedback.data })
+      const result = { analysis: analysis.data, clientFeedback: clientFeedback.data }
+      setFeedback(result)
+
+      // Persiste no Supabase
+      await saveReport({
+        date: today,
+        workout_completed: form.workout_completed,
+        workout_notes: form.workout_notes || null,
+        energy_level: form.energy_level,
+        sleep_hours: form.sleep_hours ? Number(form.sleep_hours) : null,
+        mood: form.mood,
+        weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+        water_ml: null,
+        adherence_percent: form.adherence_percent,
+        analysis: result.analysis,
+        feedback: result.clientFeedback,
+      })
+
     } catch (e) {
       setError('Erro ao enviar relatório. Verifique sua conexão.')
     } finally {

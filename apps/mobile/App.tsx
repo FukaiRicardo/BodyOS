@@ -12,6 +12,8 @@ import OnboardingScreen from './src/screens/OnboardingScreen'
 import HomeScreen from './src/screens/HomeScreen'
 import PlanScreen from './src/screens/PlanScreen'
 import ReportScreen from './src/screens/ReportScreen'
+import { DatabaseProvider } from './src/context/DatabaseContext'
+
 
 export type UserProfile = {
   goal: string
@@ -76,10 +78,12 @@ function AppNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <StatusBar style="light" />
-        <AppNavigator />
-      </NavigationContainer>
+      <DatabaseProvider>
+        <NavigationContainer>
+          <StatusBar style="light" />
+          <AppNavigator />
+        </NavigationContainer>
+      </DatabaseProvider>
     </AuthProvider>
   )
 }

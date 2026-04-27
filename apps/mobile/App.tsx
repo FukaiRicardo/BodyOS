@@ -12,8 +12,8 @@ import OnboardingScreen from './src/screens/OnboardingScreen'
 import HomeScreen from './src/screens/HomeScreen'
 import PlanScreen from './src/screens/PlanScreen'
 import ReportScreen from './src/screens/ReportScreen'
+import ProgressScreen from './src/screens/ProgressScreen'
 import { DatabaseProvider } from './src/context/DatabaseContext'
-
 
 export type UserProfile = {
   goal: string
@@ -33,11 +33,11 @@ export type RootStackParamList = {
   Home: { profile: UserProfile }
   Plan: { profile: UserProfile }
   Report: { profile: UserProfile }
+  Progress: { profile: UserProfile }
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
-// Navegação separada por estado de auth — evita flash de tela errada
 function AppNavigator() {
   const { session, loading } = useAuth()
 
@@ -57,15 +57,14 @@ function AppNavigator() {
       }}
     >
       {session ? (
-        // Usuário autenticado
         <>
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Plan" component={PlanScreen} />
           <Stack.Screen name="Report" component={ReportScreen} />
+          <Stack.Screen name="Progress" component={ProgressScreen} />
         </>
       ) : (
-        // Usuário não autenticado
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />

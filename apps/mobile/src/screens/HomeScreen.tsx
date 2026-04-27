@@ -54,7 +54,6 @@ export default function HomeScreen() {
     fetchDashboardData()
   }, [])
 
-  // Score do dia com cor dinâmica
   const score = todayReport?.analysis?.overall_score
   const alertLevel = todayReport?.analysis?.alert_level ?? 'green'
   const scoreColor = ALERT_COLORS[alertLevel] ?? '#00FF88'
@@ -74,7 +73,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Score do dia — só aparece se já tem relatório hoje */}
+        {/* Score do dia */}
         {todayReport && score !== undefined && (
           <View style={[s.scoreCard, { borderColor: scoreColor }]}>
             <View style={s.scoreLeft}>
@@ -113,7 +112,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* CTA principal — gerar protocolo */}
+        {/* CTA principal */}
         <TouchableOpacity
           style={s.ctaPrimary}
           onPress={() => navigation.navigate('Plan', { profile })}
@@ -130,7 +129,7 @@ export default function HomeScreen() {
           <Text style={s.ctaArrow}>→</Text>
         </TouchableOpacity>
 
-        {/* CTA secundário — relatório diário */}
+        {/* CTA secundário */}
         <TouchableOpacity
           style={[s.ctaSecondary, todayReport && s.ctaSecondaryDone]}
           onPress={() => navigation.navigate('Report', { profile })}
@@ -165,14 +164,14 @@ export default function HomeScreen() {
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>💧</Text>
-              <Text style={[s.statValue, todayReport?.water_ml && { color: '#60A5FA' }]}>
+              <Text style={[s.statValue, todayReport?.water_ml != null && { color: '#60A5FA' }]}>
                 {todayReport?.water_ml ? `${(todayReport.water_ml / 1000).toFixed(1)}L` : '—'}
               </Text>
               <Text style={s.statLabel}>Hidratação</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>😴</Text>
-              <Text style={[s.statValue, todayReport?.sleep_hours && { color: '#A78BFA' }]}>
+              <Text style={[s.statValue, todayReport?.sleep_hours != null && { color: '#A78BFA' }]}>
                 {todayReport?.sleep_hours ? `${todayReport.sleep_hours}h` : '—'}
               </Text>
               <Text style={s.statLabel}>Sono</Text>
@@ -212,6 +211,14 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Botão de progresso */}
+        <TouchableOpacity
+          style={s.progressBtn}
+          onPress={() => navigation.navigate('Progress', { profile })}
+        >
+          <Text style={s.progressBtnText}>📈 Ver meu progresso</Text>
+        </TouchableOpacity>
 
         {/* Atualizar perfil */}
         <TouchableOpacity
@@ -275,6 +282,8 @@ const s = StyleSheet.create({
   adherencePercent: { fontSize: 18, fontWeight: '800' },
   adherenceBar: { height: 6, backgroundColor: '#1E1E2E', borderRadius: 3, overflow: 'hidden' },
   adherenceFill: { height: 6, borderRadius: 3 },
+  progressBtn: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#2A2A3E', marginBottom: 12 },
+  progressBtnText: { color: '#00FF88', fontWeight: '700', fontSize: 15 },
   editProfileBtn: { backgroundColor: '#13131A', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E2E' },
   editProfileText: { color: '#A0A0B0', fontWeight: '600', fontSize: 14 },
 })

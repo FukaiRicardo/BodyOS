@@ -54,9 +54,17 @@ export default function HomeScreen() {
     fetchDashboardData()
   }, [])
 
-  const score = todayReport?.analysis?.overall_score
-  const alertLevel = todayReport?.analysis?.alert_level ?? 'green'
+const analysisData = todayReport?.analysis?.analise_diaria !== undefined 
+  ? todayReport?.analysis?.analise_diaria 
+  : todayReport?.analysis
+  const score = analysisData?.overall_score ?? analysisData?.pontuacao_geral
+  const rawAlertLevel = analysisData?.alert_level ?? analysisData?.nivel_alerta
+  const alertLevel = rawAlertLevel === 'verde' ? 'green'
+    : rawAlertLevel === 'amarelo' ? 'yellow'
+    : rawAlertLevel === 'vermelho' ? 'red'
+    : rawAlertLevel ?? 'green'
   const scoreColor = ALERT_COLORS[alertLevel] ?? '#00FF88'
+  const motivationalMessage = analysisData?.motivational_message ?? analysisData?.mensagem_motivacional ?? ''
 
   return (
     <SafeAreaView style={s.container}>
@@ -74,13 +82,13 @@ export default function HomeScreen() {
         </View>
 
         {/* Score do dia */}
-        {todayReport && score !== undefined && (
+        {todayReport && score !== undefined && score !== null && (
           <View style={[s.scoreCard, { borderColor: scoreColor }]}>
             <View style={s.scoreLeft}>
               <Text style={s.scoreLabel}>Score de hoje</Text>
               <Text style={[s.scoreValue, { color: scoreColor }]}>{score}/100</Text>
               <Text style={s.scoreMessage} numberOfLines={2}>
-                {todayReport.analysis?.motivational_message ?? ''}
+                {motivationalMessage}
               </Text>
             </View>
             <Text style={s.scoreEmoji}>

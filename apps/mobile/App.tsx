@@ -130,4 +130,4 @@ export default function App() {
       </DatabaseProvider>
     </AuthProvider>
   )
-}
+} 

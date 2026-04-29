@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext } from 'react'
 import { supabase, Profile, Plan, Report } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://192.168.0.205:3001'
 
 type DatabaseContextType = {
   // Profile
@@ -15,6 +17,9 @@ type DatabaseContextType = {
   saveReport: (report: Omit<Report, 'id' | 'user_id' | 'created_at'>) => Promise<{ data: Report | null; error: any }>
   loadReports: (limit?: number) => Promise<{ data: Report[]; error: any }>
   loadTodayReport: () => Promise<{ data: Report | null; error: any }>
+
+  // Adaptation
+  adaptProtocol: () => Promise<{ data: any | null; error: any }>
 }
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined)
@@ -129,6 +134,83 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     return { data: data as Report | null, error }
   }
 
+  // ═══ Adaptation ═══════════════════════════════════════════
+
+  const adaptProtocol = async () => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    try {
+      // Busca perfil, plano atual e últimos 14 relatórios em paralelo
+      const [profileResult, planResult, reportsResult] = await Promise.all([
+        loadProfile(),
+        loadLatestPlan(),
+        loadReports(14),
+      ])
+
+      if (!profileResult.data) return { data: null, error: 'Perfil não encontrado' }
+      if (!planResult.data) return { data: null, error: 'Plano não encontrado' }
+      if (reportsResult.data.length < 3) return { data: null, error: 'Precisa de pelo menos 3 relatórios para adaptar o protocolo' }
+
+      const profile = profileResult.data
+      const plan = planResult.data
+
+      // Monta o payload para o AI service
+      const adaptationInput = {
+        user_profile: {
+          goal: profile.goal,
+          fitness_level: profile.fitness_level,
+          weekly_days: profile.weekly_days,
+          current_weight_kg: profile.current_weight_kg,
+          height_cm: profile.height_cm,
+          age: profile.age,
+          gender: profile.gender,
+        },
+        current_plan: {
+          nutrition: plan.nutrition_plan,
+          workout: plan.workout_plan,
+        },
+        reports: reportsResult.data.map(r => ({
+  user_profile: {
+    goal: profile.goal,
+    fitness_level: profile.fitness_level,
+    weekly_days: profile.weekly_days,
+  },
+  date: r.date,
+  workout_completed: r.workout_completed,
+  energy_level: r.energy_level,
+  ...(r.sleep_hours != null && { sleep_hours: r.sleep_hours }),
+  mood: r.mood,
+  ...(r.weight_kg != null && { weight_kg: r.weight_kg }),
+  ...(r.water_ml != null && { water_ml: r.water_ml }),
+  adherence_percent: r.adherence_percent,
+  meals_logged: [],
+})),
+        weeks_on_plan: Math.ceil(reportsResult.data.length / 7),
+      }
+
+    // Chama o AI service
+const response = await fetch(`${AI_SERVICE_URL}/protocol/adapt`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(adaptationInput),
+})
+
+console.log('ADAPT STATUS:', response.status)
+const result = await response.json()
+console.log('ADAPT RESULT:', JSON.stringify(result))
+
+if (!result.data) return { data: null, error: 'Erro na resposta da IA' }
+
+return { 
+  data: { adaptation: result.data, plan: plan }, 
+  error: null 
+}
+
+    } catch (e) {
+      return { data: null, error: 'Erro ao conectar com o serviço de IA' }
+    }
+  }
+
   return (
     <DatabaseContext.Provider value={{
       saveProfile,
@@ -138,6 +220,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       saveReport,
       loadReports,
       loadTodayReport,
+      adaptProtocol,
     }}>
       {children}
     </DatabaseContext.Provider>

@@ -10,7 +10,7 @@ import { useDatabase } from '../context/DatabaseContext'
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
-const AI_SERVICE_URL = 'http://192.168.0.205:3001'
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://192.168.0.205:3001'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🌅',
@@ -98,6 +98,7 @@ export default function PlanScreen() {
       setSaving(false)
 
     } catch (e) {
+      console.error('PLAN ERROR:', JSON.stringify(e))
       setError('Erro ao conectar com o serviço de IA.')
     } finally {
       setLoading(false)

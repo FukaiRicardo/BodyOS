@@ -17,7 +17,7 @@ import { useDatabase } from '../context/DatabaseContext'
 
 type Route = RouteProp<RootStackParamList, 'Report'>
 
-const AI_SERVICE_URL = 'http://192.168.0.205:3001'
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://192.168.0.205:3001'
 
 // Opções de humor — emojis tornam a UX mais intuitiva e rápida
 const MOODS = [

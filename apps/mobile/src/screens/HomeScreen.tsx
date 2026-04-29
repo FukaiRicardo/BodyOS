@@ -1,7 +1,7 @@
 // Home dashboard — exibe resumo do perfil e stats reais do dia via Supabase
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
 import { useAuth } from '../context/AuthContext'
@@ -33,12 +33,15 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>()
   const route = useRoute<Route>()
   const { signOut, user } = useAuth()
-  const { loadTodayReport, loadLatestPlan } = useDatabase()
+  const { loadTodayReport, loadLatestPlan, adaptProtocol } = useDatabase()
   const profile = route.params?.profile
 
   const [todayReport, setTodayReport] = useState<Report | null>(null)
   const [hasPlan, setHasPlan] = useState(false)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [adapting, setAdapting] = useState(false)
+  const [adaptationResult, setAdaptationResult] = useState<any>(null)
+  const [showAdaptModal, setShowAdaptModal] = useState(false)
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -54,9 +57,9 @@ export default function HomeScreen() {
     fetchDashboardData()
   }, [])
 
-const analysisData = todayReport?.analysis?.analise_diaria !== undefined 
-  ? todayReport?.analysis?.analise_diaria 
-  : todayReport?.analysis
+  const analysisData = todayReport?.analysis?.analise_diaria !== undefined
+    ? todayReport?.analysis?.analise_diaria
+    : todayReport?.analysis
   const score = analysisData?.overall_score ?? analysisData?.pontuacao_geral
   const rawAlertLevel = analysisData?.alert_level ?? analysisData?.nivel_alerta
   const alertLevel = rawAlertLevel === 'verde' ? 'green'
@@ -65,6 +68,20 @@ const analysisData = todayReport?.analysis?.analise_diaria !== undefined
     : rawAlertLevel ?? 'green'
   const scoreColor = ALERT_COLORS[alertLevel] ?? '#00FF88'
   const motivationalMessage = analysisData?.motivational_message ?? analysisData?.mensagem_motivacional ?? ''
+
+  async function handleAdaptProtocol() {
+    setAdapting(true)
+    const { data, error } = await adaptProtocol()
+    setAdapting(false)
+
+    if (error) {
+      Alert.alert('Não foi possível adaptar', typeof error === 'string' ? error : 'Tente novamente mais tarde.')
+      return
+    }
+
+    setAdaptationResult(data?.adaptation)
+    setShowAdaptModal(true)
+  }
 
   return (
     <SafeAreaView style={s.container}>
@@ -87,9 +104,7 @@ const analysisData = todayReport?.analysis?.analise_diaria !== undefined
             <View style={s.scoreLeft}>
               <Text style={s.scoreLabel}>Score de hoje</Text>
               <Text style={[s.scoreValue, { color: scoreColor }]}>{score}/100</Text>
-              <Text style={s.scoreMessage} numberOfLines={2}>
-                {motivationalMessage}
-              </Text>
+              <Text style={s.scoreMessage} numberOfLines={2}>{motivationalMessage}</Text>
             </View>
             <Text style={s.scoreEmoji}>
               {alertLevel === 'green' ? '🏆' : alertLevel === 'yellow' ? '⚡' : '⚠️'}
@@ -153,6 +168,30 @@ const analysisData = todayReport?.analysis?.analise_diaria !== undefined
           </View>
           <Text style={s.ctaArrowDark}>→</Text>
         </TouchableOpacity>
+
+        {/* Botão adaptar protocolo */}
+        {hasPlan && (
+          <TouchableOpacity
+            style={[s.adaptBtn, adapting && s.adaptBtnDisabled]}
+            onPress={handleAdaptProtocol}
+            disabled={adapting}
+          >
+            {adapting ? (
+              <View style={s.adaptBtnInner}>
+                <ActivityIndicator color="#A78BFA" size="small" />
+                <Text style={s.adaptBtnText}>IA analisando seu histórico...</Text>
+              </View>
+            ) : (
+              <View style={s.adaptBtnInner}>
+                <Text style={s.adaptBtnEmoji}>🔄</Text>
+                <View>
+                  <Text style={s.adaptBtnText}>Adaptar Protocolo</Text>
+                  <Text style={s.adaptBtnSub}>IA ajusta com base no seu histórico</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Stats do dia */}
         <Text style={s.sectionTitle}>Resumo do dia</Text>
@@ -238,6 +277,83 @@ const analysisData = todayReport?.analysis?.analise_diaria !== undefined
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Modal de resultado da adaptação */}
+      <Modal
+        visible={showAdaptModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAdaptModal(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={s.modalTitle}>🔄 Protocolo Adaptado!</Text>
+
+              {adaptationResult && (
+                <>
+                  <View style={s.modalSection}>
+                    <Text style={s.modalLabel}>Motivo da adaptação</Text>
+                    <Text style={s.modalText}>
+                      {adaptationResult.adaptation_reason ?? adaptationResult.motivo_adaptacao ?? '—'}
+                    </Text>
+                  </View>
+
+                  {(adaptationResult.changes ?? adaptationResult.mudancas)?.length > 0 && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>Mudanças realizadas</Text>
+                      {(adaptationResult.changes ?? adaptationResult.mudancas).map((c: string, i: number) => (
+                        <Text key={i} style={s.modalItem}>• {c}</Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {(adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico) && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>Nova meta calórica</Text>
+                      <Text style={[s.modalText, { color: '#00FF88', fontSize: 20, fontWeight: '800' }]}>
+                        {adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico} kcal
+                      </Text>
+                    </View>
+                  )}
+
+                  {(adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao) && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>Recuperação</Text>
+                      <Text style={s.modalText}>
+                        {adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={[s.modalSection, s.modalClosingCard]}>
+                    <Text style={s.modalClosing}>
+                      {adaptationResult.coach_message ?? adaptationResult.mensagem_coach ?? ''}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              <TouchableOpacity
+                style={s.modalBtn}
+                onPress={() => {
+                  setShowAdaptModal(false)
+                  navigation.navigate('Plan', { profile })
+                }}
+              >
+                <Text style={s.modalBtnText}>Ver novo protocolo →</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.modalBtnSecondary}
+                onPress={() => setShowAdaptModal(false)}
+              >
+                <Text style={s.modalBtnSecondaryText}>Fechar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -268,12 +384,18 @@ const s = StyleSheet.create({
   ctaPrimaryTitle: { fontSize: 17, fontWeight: '800', color: '#000' },
   ctaPrimarySubtitle: { fontSize: 13, color: '#005533', marginTop: 2 },
   ctaArrow: { fontSize: 20, color: '#000', fontWeight: '800' },
-  ctaSecondary: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 16, borderWidth: 1, borderColor: '#2A2A3E' },
+  ctaSecondary: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 16, borderWidth: 1, borderColor: '#2A2A3E' },
   ctaSecondaryDone: { borderColor: '#00FF88', backgroundColor: '#0D2E1A' },
   ctaSecondaryEmoji: { fontSize: 32 },
   ctaSecondaryTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
   ctaSecondarySubtitle: { fontSize: 13, color: '#555', marginTop: 2 },
   ctaArrowDark: { fontSize: 20, color: '#555', fontWeight: '800' },
+  adaptBtn: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: '#A78BFA' },
+  adaptBtnDisabled: { opacity: 0.6 },
+  adaptBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  adaptBtnEmoji: { fontSize: 32 },
+  adaptBtnText: { fontSize: 16, fontWeight: '700', color: '#A78BFA' },
+  adaptBtnSub: { fontSize: 12, color: '#555', marginTop: 2 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   statsLoading: { height: 90, justifyContent: 'center', alignItems: 'center' },
   statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
@@ -294,4 +416,17 @@ const s = StyleSheet.create({
   progressBtnText: { color: '#00FF88', fontWeight: '700', fontSize: 15 },
   editProfileBtn: { backgroundColor: '#13131A', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E2E' },
   editProfileText: { color: '#A0A0B0', fontWeight: '600', fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#13131A', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', marginBottom: 24, textAlign: 'center' },
+  modalSection: { marginBottom: 16 },
+  modalLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  modalText: { fontSize: 15, color: '#A0A0B0', lineHeight: 22 },
+  modalItem: { fontSize: 14, color: '#A0A0B0', lineHeight: 24 },
+  modalClosingCard: { backgroundColor: '#0D2E1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#00FF88' },
+  modalClosing: { fontSize: 15, color: '#00FF88', textAlign: 'center', fontWeight: '600', lineHeight: 24 },
+  modalBtn: { backgroundColor: '#00FF88', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8, marginBottom: 8 },
+  modalBtnText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  modalBtnSecondary: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 8 },
+  modalBtnSecondaryText: { color: '#A0A0B0', fontWeight: '600', fontSize: 15 },
 })

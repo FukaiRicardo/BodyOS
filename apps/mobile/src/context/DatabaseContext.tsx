@@ -2,7 +2,7 @@ import React, { createContext, useContext } from 'react'
 import { supabase, Profile, Plan, Report } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
-const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://192.168.0.205:3001'
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
 
 type DatabaseContextType = {
   // Profile

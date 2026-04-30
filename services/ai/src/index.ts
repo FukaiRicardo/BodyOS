@@ -30,7 +30,7 @@ app.use(helmet({
 const ALLOWED_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:19006',
-  `http://192.168.0.205:8081`,
+  ...(process.env.LOCAL_IP ? [`http://${process.env.LOCAL_IP}:8081`] : []),
   ...(process.env.ALLOWED_ORIGINS?.split(',') ?? []),
 ]
 

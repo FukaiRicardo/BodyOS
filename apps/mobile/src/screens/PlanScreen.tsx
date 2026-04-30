@@ -10,7 +10,7 @@ import { useDatabase } from '../context/DatabaseContext'
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
-const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://192.168.0.205:3001'
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🌅',
@@ -89,8 +89,7 @@ export default function PlanScreen() {
           }),
         }).then(r => r.json()),
       ])
-console.log('NUTRITION RESPONSE:', JSON.stringify(nutrition))
-console.log('WORKOUT RESPONSE:', JSON.stringify(workout))
+
       const newPlan = {
         nutrition: nutrition.data,
         workout: workout.data,

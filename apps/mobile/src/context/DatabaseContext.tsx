@@ -188,10 +188,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         weeks_on_plan: Math.ceil(reportsResult.data.length / 7),
       }
 
-    // Chama o AI service
+ // Chama o AI service
 const response = await fetch(`${AI_SERVICE_URL}/protocol/adapt`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+  },
   body: JSON.stringify(adaptationInput),
 })
 

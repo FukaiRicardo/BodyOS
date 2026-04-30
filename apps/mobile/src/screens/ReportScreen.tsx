@@ -86,16 +86,21 @@ export default function ReportScreen() {
       const [analysis, clientFeedback] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/report/analyze`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
           body: JSON.stringify(report),
         }).then(r => r.json()),
         fetch(`${AI_SERVICE_URL}/feedback/generate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
           body: JSON.stringify(report),
         }).then(r => r.json()),
       ])
-
       const result = { analysis: analysis.data, clientFeedback: clientFeedback.data }
       setFeedback(result)
 

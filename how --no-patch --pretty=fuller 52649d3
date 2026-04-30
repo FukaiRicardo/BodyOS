@@ -1,0 +1,95 @@
+[33mcommit 52649d3ee476e69c6d0813f17ddb60fcd5cfd1cf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: update mobile screens and database context
+
+[33mcommit 60926e265276b95271692066ccc7e498eec8a5c2[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    fix: HomeScreen score card with PT-BR and EN JSON support
+    
+    - Handle both analise_diaria nested and flat analysis structures
+    - Support pontuacao_geral and overall_score fields
+    - Support nivel_alerta (verde/amarelo/vermelho) and alert_level
+    - Support mensagem_motivacional and motivational_message fields
+
+[33mcommit 4b74adc62dbf89c408b5d067d01d94faedd5b1e9[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: Progress screen + smart routing based on existing profile
+    
+    - ProgressScreen with score, weight and adherence charts
+    - Line and bar charts using react-native-chart-kit
+    - Historical report list with score badges
+    - App now loads profile from Supabase on startup
+    - Existing users go directly to Home, new users to Onboarding
+    - Fixed duplicate screen name error in navigator
+
+[33mcommit ddcbc5278ca32e528582f5af6232fd94c45113eb[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat(progress): add progress dashboard screen with charts and navigation
+
+[33mcommit 268fc6ab75508d7dcc1f30ea0be05a3188d9c7d4[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    chore(mobile): add chart dependencies for progress analytics
+
+[33mcommit ea1615ebd86fd09fa71d2dec919f9b925175c35f[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: HomeScreen with real-time stats from Supabase
+    
+    - Load today report and latest plan on mount
+    - Show daily score with dynamic color based on alert level
+    - Stats cards with real data: energy, hydration, sleep, workout
+    - Weight and adherence bar from today report
+    - CTA buttons adapt based on existing plan and report
+
+[33mcommit 53acedf7e61bad5a1e65b59147efbfd8e4d29535[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: Supabase persistence — profiles, plans and reports
+    
+    - DatabaseContext with saveProfile, savePlan, saveReport, loadLatestPlan
+    - OnboardingScreen saves profile to Supabase on completion
+    - PlanScreen loads existing plan on mount and saves new plans
+    - ReportScreen saves daily report with AI analysis to database
+    - SQL schema with RLS policies for profiles, plans and reports tables
+
+[33mcommit fbb8cceb0dfa79c7d9004d9c1cc8bed767a2bc5c[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: Supabase auth + Groq AI integration
+    
+    - Full authentication flow (Login, Register, AuthContext)
+    - Supabase PKCE auth with AsyncStorage session persistence
+    - Strong password validation and generic error messages
+    - Auth guard protecting all app routes
+    - Fixed HomeScreen dashboard with profile summary
+    - Switched AI engine from Gemini to Groq (llama-3.3-70b-versatile)
+    - Fixed AI service binding to 0.0.0.0 for external connections
+    - Added expo-crypto polyfill for WebCrypto support
+
+[33mcommit 5629815cf9a7964b97aa2150094403471ddf031c[m
+Author: Ricardo Fukai <fukairicardo@gmail.com>
+Commit: Ricardo Fukai <fukairicardo@gmail.com>
+
+    feat: initial release — mobile app + AI service + Supabase auth
+    
+    - Monorepo structure with Turborepo (apps/mobile, services/ai, services/gateway)
+    - React Native + Expo SDK 54 mobile app with TypeScript
+    - 6 screens: Login, Register, Onboarding (5 steps), Home, Plan, Report
+    - Supabase Auth with PKCE flow, session persistence, strong password validation
+    - AI Service (Node.js/Express) with 5 endpoints powered by Gemini 2.0 Flash
+    - API Gateway with auth, security and validation middleware
+    - Mock mode for AI development (MOCK_AI=true)
+    - React Navigation v7 with auth guard (protected routes)

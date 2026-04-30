@@ -41,13 +41,13 @@ export default function PlanScreen() {
     async function fetchExistingPlan() {
       setLoadingExisting(true)
       const { data } = await loadLatestPlan()
-      if (data) {
-        setPlan({
-          nutrition: data.nutrition_plan,
-          workout: data.workout_plan,
-          ai_model: data.ai_model ?? undefined,
-        })
-      }
+      if (data && data.nutrition_plan && data.workout_plan) {
+  setPlan({
+    nutrition: data.nutrition_plan,
+    workout: data.workout_plan,
+    ai_model: data.ai_model ?? undefined,
+  })
+}
       setLoadingExisting(false)
     }
     fetchExistingPlan()
@@ -60,7 +60,10 @@ export default function PlanScreen() {
       const [nutrition, workout] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
           body: JSON.stringify({
             goal: profile?.goal ?? 'muscle_gain',
             fitness_level: profile?.fitness_level ?? 'intermediate',
@@ -73,7 +76,10 @@ export default function PlanScreen() {
         }).then(r => r.json()),
         fetch(`${AI_SERVICE_URL}/workout/generate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
           body: JSON.stringify({
             goal: profile?.goal ?? 'muscle_gain',
             fitness_level: profile?.fitness_level ?? 'intermediate',
@@ -83,7 +89,8 @@ export default function PlanScreen() {
           }),
         }).then(r => r.json()),
       ])
-
+console.log('NUTRITION RESPONSE:', JSON.stringify(nutrition))
+console.log('WORKOUT RESPONSE:', JSON.stringify(workout))
       const newPlan = {
         nutrition: nutrition.data,
         workout: workout.data,

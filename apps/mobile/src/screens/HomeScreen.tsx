@@ -183,12 +183,12 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View style={s.adaptBtnInner}>
-                <Text style={s.adaptBtnEmoji}>🔄</Text>
-                <View>
-                  <Text style={s.adaptBtnText}>Adaptar Protocolo</Text>
-                  <Text style={s.adaptBtnSub}>IA ajusta com base no seu histórico</Text>
-                </View>
-              </View>
+  <Text style={s.adaptBtnEmoji}>🔄</Text>
+  <View style={{ flex: 1 }}>
+    <Text style={s.adaptBtnText}>Adaptar Protocolo</Text>
+    <Text style={s.adaptBtnSub}>IA ajusta com base no seu histórico</Text>
+  </View>
+</View>
             )}
           </TouchableOpacity>
         )}
@@ -201,38 +201,38 @@ export default function HomeScreen() {
             <ActivityIndicator color="#00FF88" size="small" />
           </View>
         ) : (
+        
           <View style={s.statsGrid}>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>⚡</Text>
               <Text style={[s.statValue, todayReport && { color: '#00FF88' }]}>
                 {todayReport ? `${todayReport.energy_level}/5` : '—'}
               </Text>
-              <Text style={s.statLabel}>Energia</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Energia</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>💧</Text>
               <Text style={[s.statValue, todayReport?.water_ml != null && { color: '#60A5FA' }]}>
                 {todayReport?.water_ml ? `${(todayReport.water_ml / 1000).toFixed(1)}L` : '—'}
               </Text>
-              <Text style={s.statLabel}>Hidratação</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Água</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>😴</Text>
               <Text style={[s.statValue, todayReport?.sleep_hours != null && { color: '#A78BFA' }]}>
                 {todayReport?.sleep_hours ? `${todayReport.sleep_hours}h` : '—'}
               </Text>
-              <Text style={s.statLabel}>Sono</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Sono</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>💪</Text>
               <Text style={[s.statValue, { color: todayReport?.workout_completed ? '#00FF88' : '#F87171' }]}>
                 {todayReport ? (todayReport.workout_completed ? 'Sim' : 'Não') : '—'}
               </Text>
-              <Text style={s.statLabel}>Treino</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Treino</Text>
             </View>
           </View>
         )}
-
         {/* Peso do dia */}
         {todayReport?.weight_kg && (
           <View style={s.weightCard}>
@@ -395,14 +395,14 @@ const s = StyleSheet.create({
   adaptBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   adaptBtnEmoji: { fontSize: 32 },
   adaptBtnText: { fontSize: 16, fontWeight: '700', color: '#A78BFA' },
-  adaptBtnSub: { fontSize: 12, color: '#555', marginTop: 2 },
+  adaptBtnSub: { fontSize: 12, color: '#555', marginTop: 2, flexShrink: 1 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   statsLoading: { height: 90, justifyContent: 'center', alignItems: 'center' },
   statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 14, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#1E1E2E' },
-  statEmoji: { fontSize: 22 },
-  statValue: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-  statLabel: { fontSize: 11, color: '#555' },
+ statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 8, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#1E1E2E' },
+statEmoji: { fontSize: 16 },
+statValue: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+statLabel: { fontSize: 9, color: '#555', textAlign: 'center' },
   weightCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#1E1E2E', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   weightLabel: { fontSize: 14, color: '#A0A0B0', fontWeight: '600' },
   weightValue: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },

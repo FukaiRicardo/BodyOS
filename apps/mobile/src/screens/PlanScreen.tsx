@@ -192,7 +192,7 @@ export default function PlanScreen() {
                 <View key={i} style={s.macroCard}>
                   <Text style={[s.macroValue, { color: m.color }]}>{m.value}</Text>
                   <Text style={s.macroUnit}>{m.unit}</Text>
-                  <Text style={s.macroLabel}>{m.label}</Text>
+                  <Text style={s.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{m.label}</Text>
                 </View>
               ))}
             </View>
@@ -322,10 +322,10 @@ const s = StyleSheet.create({
   savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
   macroRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 12, alignItems: 'center' },
-  macroValue: { fontSize: 18, fontWeight: '800' },
-  macroUnit: { fontSize: 10, color: '#A0A0B0' },
-  macroLabel: { fontSize: 11, color: '#A0A0B0', marginTop: 2 },
+  macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 8, alignItems: 'center' },
+macroValue: { fontSize: 16, fontWeight: '800' },
+macroUnit: { fontSize: 9, color: '#A0A0B0' },
+macroLabel: { fontSize: 9, color: '#A0A0B0', marginTop: 2, textAlign: 'center' },
   hydrationCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#0D1A2E', borderRadius: 14, padding: 16, borderLeftWidth: 3, borderLeftColor: '#60A5FA' },
   hydrationEmoji: { fontSize: 32 },
   hydrationTitle: { fontSize: 13, color: '#A0A0B0', marginBottom: 4 },
@@ -339,7 +339,7 @@ const s = StyleSheet.create({
   mealName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   mealTime: { fontSize: 13, color: '#A0A0B0', marginTop: 2 },
   foodRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#2A2A3E' },
-  foodName: { fontSize: 14, color: '#E0E0E0' },
+  foodName: { fontSize: 13, color: '#E0E0E0', flex: 1, flexWrap: 'wrap' },
   foodDetail: { fontSize: 13, color: '#A0A0B0' },
   supRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#1A1A2E', padding: 14, borderRadius: 12 },
   supName: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },

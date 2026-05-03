@@ -42,12 +42,12 @@ export default function PlanScreen() {
       setLoadingExisting(true)
       const { data } = await loadLatestPlan()
       if (data && data.nutrition_plan && data.workout_plan) {
-  setPlan({
-    nutrition: data.nutrition_plan,
-    workout: data.workout_plan,
-    ai_model: data.ai_model ?? undefined,
-  })
-}
+        setPlan({
+          nutrition: data.nutrition_plan,
+          workout: data.workout_plan,
+          ai_model: data.ai_model ?? undefined,
+        })
+      }
       setLoadingExisting(false)
     }
     fetchExistingPlan()
@@ -57,7 +57,7 @@ export default function PlanScreen() {
     setLoading(true)
     setError('')
     try {
-      const [nutrition, workout] = await Promise.all([
+      const [nutritionRaw, workoutRaw] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
           method: 'POST',
           headers: {
@@ -90,10 +90,18 @@ export default function PlanScreen() {
         }).then(r => r.json()),
       ])
 
+      // Log para debug — pode remover após confirmar que está funcionando
+      console.log('NUTRITION RAW:', JSON.stringify(nutritionRaw, null, 2))
+      console.log('WORKOUT RAW:', JSON.stringify(workoutRaw, null, 2))
+
+      // Suporte a ambos os formatos: { data: {...} } ou objeto direto
+      const nutritionData = nutritionRaw.data ?? nutritionRaw
+      const workoutData = workoutRaw.data ?? workoutRaw
+
       const newPlan = {
-        nutrition: nutrition.data,
-        workout: workout.data,
-        ai_model: nutrition.ai_model ?? 'groq',
+        nutrition: nutritionData,
+        workout: workoutData,
+        ai_model: nutritionRaw.ai_model ?? 'groq',
       }
 
       setPlan(newPlan)
@@ -323,9 +331,9 @@ const s = StyleSheet.create({
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
   macroRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 8, alignItems: 'center' },
-macroValue: { fontSize: 16, fontWeight: '800' },
-macroUnit: { fontSize: 9, color: '#A0A0B0' },
-macroLabel: { fontSize: 9, color: '#A0A0B0', marginTop: 2, textAlign: 'center' },
+  macroValue: { fontSize: 16, fontWeight: '800' },
+  macroUnit: { fontSize: 9, color: '#A0A0B0' },
+  macroLabel: { fontSize: 9, color: '#A0A0B0', marginTop: 2, textAlign: 'center' },
   hydrationCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#0D1A2E', borderRadius: 14, padding: 16, borderLeftWidth: 3, borderLeftColor: '#60A5FA' },
   hydrationEmoji: { fontSize: 32 },
   hydrationTitle: { fontSize: 13, color: '#A0A0B0', marginBottom: 4 },

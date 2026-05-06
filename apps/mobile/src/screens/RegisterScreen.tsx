@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert, ScrollView
 } from 'react-native'
+import { useTranslation } from 'react-i18next'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +13,6 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>
 }
 
-// Validação de senha forte: mínimo 8 chars, 1 maiúscula, 1 número, 1 especial
 function isStrongPassword(password: string): boolean {
   return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/.test(password)
 }
@@ -23,6 +23,7 @@ function isValidEmail(email: string): boolean {
 
 export default function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -30,25 +31,22 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword) {
-      Alert.alert('Erro', 'Preencha todos os campos.')
+      Alert.alert(t('common.error'), t('register.fillAll'))
       return
     }
 
     if (!isValidEmail(email)) {
-      Alert.alert('Erro', 'Digite um email válido.')
+      Alert.alert(t('common.error'), t('register.invalidEmail'))
       return
     }
 
     if (!isStrongPassword(password)) {
-      Alert.alert(
-        'Senha fraca',
-        'A senha deve ter no mínimo 8 caracteres, uma letra maiúscula, um número e um caractere especial.'
-      )
+      Alert.alert(t('register.weakPassword'), t('register.weakPasswordDesc'))
       return
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Erro', 'As senhas não coincidem.')
+      Alert.alert(t('common.error'), t('register.passwordMismatch'))
       return
     }
 
@@ -57,13 +55,13 @@ export default function RegisterScreen({ navigation }: Props) {
     setLoading(false)
 
     if (error) {
-      Alert.alert('Erro ao criar conta', 'Tente novamente com outro email.')
+      Alert.alert(t('register.errorTitle'), t('register.errorDesc'))
       return
     }
 
     Alert.alert(
-      'Conta criada!',
-      'Verifique seu email para confirmar a conta antes de entrar.',
+      t('register.successTitle'),
+      t('register.successDesc'),
       [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
     )
   }
@@ -75,15 +73,15 @@ export default function RegisterScreen({ navigation }: Props) {
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <Text style={styles.backText}>← Voltar</Text>
+          <Text style={styles.backText}>← {t('common.back')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Criar conta</Text>
-        <Text style={styles.subtitle}>Comece seu protocolo personalizado</Text>
+        <Text style={styles.title}>{t('register.title')}</Text>
+        <Text style={styles.subtitle}>{t('register.subtitle')}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('auth.email')}
           placeholderTextColor="#555"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -94,7 +92,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <TextInput
           style={styles.input}
-          placeholder="Senha"
+          placeholder={t('auth.password')}
           placeholderTextColor="#555"
           secureTextEntry
           autoCapitalize="none"
@@ -103,11 +101,11 @@ export default function RegisterScreen({ navigation }: Props) {
           onChangeText={setPassword}
         />
 
-        <Text style={styles.hint}>Mín. 8 chars, 1 maiúscula, 1 número, 1 caractere especial</Text>
+        <Text style={styles.hint}>{t('register.passwordHint')}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Confirmar senha"
+          placeholder={t('register.confirmPassword')}
           placeholderTextColor="#555"
           secureTextEntry
           autoCapitalize="none"
@@ -123,7 +121,7 @@ export default function RegisterScreen({ navigation }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#000" />
-            : <Text style={styles.buttonText}>Criar conta</Text>
+            : <Text style={styles.buttonText}>{t('register.title')}</Text>
           }
         </TouchableOpacity>
       </ScrollView>

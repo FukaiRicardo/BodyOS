@@ -1,15 +1,10 @@
-// Tela de relatório diário — coleta dados de aderência, treino, humor e energia
-// Esses dados alimentam o sistema de análise e feedback da IA
+// ReportScreen com i18n
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  ActivityIndicator, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
@@ -18,26 +13,29 @@ import { useDatabase } from '../context/DatabaseContext'
 type Route = RouteProp<RootStackParamList, 'Report'>
 
 const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
-
-// Opções de humor — emojis tornam a UX mais intuitiva e rápida
-const MOODS = [
-  { id: 'otimo', label: 'Ótimo', emoji: '😄' },
-  { id: 'bom', label: 'Bom', emoji: '🙂' },
-  { id: 'neutro', label: 'Neutro', emoji: '😐' },
-  { id: 'cansado', label: 'Cansado', emoji: '😴' },
-  { id: 'ruim', label: 'Ruim', emoji: '😔' },
-]
-
-// Escala de energia de 1 a 5 — usada pela IA para detectar overtraining ou falta de recuperação
 const ENERGY_LEVELS = [1, 2, 3, 4, 5]
+
+const alertColor: Record<string, string> = {
+  green: '#00FF87',
+  yellow: '#F59E0B',
+  red: '#F87171',
+}
 
 export default function ReportScreen() {
   const navigation = useNavigation()
   const { saveReport } = useDatabase()
   const route = useRoute<Route>()
   const profile = route.params?.profile
+  const { t, i18n } = useTranslation()
 
-  // Estado do formulário — estrutura espelha o DailyReport do backend
+  const MOODS = [
+    { id: 'otimo', label: t('report.mood.great'), emoji: '😁' },
+    { id: 'bom', label: t('report.mood.good'), emoji: '😊' },
+    { id: 'neutro', label: t('report.mood.neutral'), emoji: '😐' },
+    { id: 'cansado', label: t('report.mood.tired'), emoji: '😴' },
+    { id: 'ruim', label: t('report.mood.bad'), emoji: '😞' },
+  ]
+
   const [form, setForm] = useState({
     workout_completed: false,
     workout_notes: '',
@@ -53,10 +51,9 @@ export default function ReportScreen() {
   const [feedback, setFeedback] = useState<any>(null)
   const [error, setError] = useState('')
 
-  // Envia o relatório para a IA analisar e retorna feedback personalizado
   async function submitReport() {
     if (!form.mood) {
-      setError('Selecione seu humor do dia')
+      setError(t('report.selectMood'))
       return
     }
 
@@ -81,30 +78,25 @@ export default function ReportScreen() {
         sleep_hours: form.sleep_hours ? Number(form.sleep_hours) : undefined,
         mood: form.mood,
         adherence_percent: form.adherence_percent,
+        language: i18n.language,
       }
 
       const [analysis, clientFeedback] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/report/analyze`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
-          },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' },
           body: JSON.stringify(report),
         }).then(r => r.json()),
         fetch(`${AI_SERVICE_URL}/feedback/generate`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
-          },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' },
           body: JSON.stringify(report),
         }).then(r => r.json()),
       ])
+
       const result = { analysis: analysis.data, clientFeedback: clientFeedback.data }
       setFeedback(result)
 
-      // Persiste no Supabase
       await saveReport({
         date: today,
         workout_completed: form.workout_completed,
@@ -120,58 +112,48 @@ export default function ReportScreen() {
       })
 
     } catch (e) {
-      setError('Erro ao enviar relatório. Verifique sua conexão.')
+      setError(t('report.submitError'))
     } finally {
       setLoading(false)
     }
-  }
-
-  // Cor do alerta baseada no nível retornado pela IA
-  const alertColor: Record<string, string> = {
-    green: '#00FF87',
-    yellow: '#F59E0B',
-    red: '#F87171',
   }
 
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>← Voltar</Text>
+          <Text style={s.back}>← {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Relatório de hoje</Text>
+        <Text style={s.title}>{t('report.title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Formulário — só exibe se ainda não enviou */}
         {!feedback && (
           <View style={s.form}>
 
-            {/* Treino realizado — toggle simples */}
+            {/* Treino */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Treino realizado?</Text>
+              <Text style={s.sectionTitle}>{t('report.workoutDone')}</Text>
               <View style={s.toggleRow}>
                 <TouchableOpacity
                   style={[s.toggleBtn, form.workout_completed && s.toggleBtnActive]}
                   onPress={() => setForm(f => ({ ...f, workout_completed: true }))}
                 >
-                  <Text style={[s.toggleText, form.workout_completed && s.toggleTextActive]}>✅ Sim, treinei</Text>
+                  <Text style={[s.toggleText, form.workout_completed && s.toggleTextActive]}>✅ {t('report.yes')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.toggleBtn, !form.workout_completed && s.toggleBtnActiveRed]}
                   onPress={() => setForm(f => ({ ...f, workout_completed: false }))}
                 >
-                  <Text style={[s.toggleText, !form.workout_completed && s.toggleTextRed]}>❌ Não treinei</Text>
+                  <Text style={[s.toggleText, !form.workout_completed && s.toggleTextRed]}>❌ {t('report.no')}</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Notas do treino — só aparece se treinou */}
               {form.workout_completed && (
                 <TextInput
                   style={s.textArea}
-                  placeholder="Como foi o treino? Ex: aumentei carga no supino..."
+                  placeholder={t('report.workoutNotesPlaceholder')}
                   placeholderTextColor="#555"
                   multiline
                   numberOfLines={3}
@@ -181,9 +163,9 @@ export default function ReportScreen() {
               )}
             </View>
 
-            {/* Nível de energia — escala 1-5 */}
+            {/* Energia */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Nível de energia</Text>
+              <Text style={s.sectionTitle}>{t('report.energyLevel')}</Text>
               <View style={s.energyRow}>
                 {ENERGY_LEVELS.map(level => (
                   <TouchableOpacity
@@ -196,14 +178,14 @@ export default function ReportScreen() {
                 ))}
               </View>
               <View style={s.energyLabels}>
-                <Text style={s.energyLabelText}>Sem energia</Text>
-                <Text style={s.energyLabelText}>Máximo</Text>
+                <Text style={s.energyLabelText}>{t('report.energyLow')}</Text>
+                <Text style={s.energyLabelText}>{t('report.energyHigh')}</Text>
               </View>
             </View>
 
-            {/* Humor do dia */}
+            {/* Humor */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Humor do dia</Text>
+              <Text style={s.sectionTitle}>{t('report.mood.title')}</Text>
               <View style={s.moodRow}>
                 {MOODS.map(m => (
                   <TouchableOpacity
@@ -218,12 +200,12 @@ export default function ReportScreen() {
               </View>
             </View>
 
-            {/* Dados físicos do dia */}
+            {/* Dados do dia */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Dados do dia</Text>
+              <Text style={s.sectionTitle}>{t('report.dayData')}</Text>
               <View style={s.inputsRow}>
                 <View style={s.inputWrap}>
-                  <Text style={s.inputLabel}>Peso (kg)</Text>
+                  <Text style={s.inputLabel}>{t('report.weight')}</Text>
                   <TextInput
                     style={s.input}
                     placeholder="ex: 79.5"
@@ -234,7 +216,7 @@ export default function ReportScreen() {
                   />
                 </View>
                 <View style={s.inputWrap}>
-                  <Text style={s.inputLabel}>Sono (horas)</Text>
+                  <Text style={s.inputLabel}>{t('report.sleep')}</Text>
                   <TextInput
                     style={s.input}
                     placeholder="ex: 7.5"
@@ -247,9 +229,11 @@ export default function ReportScreen() {
               </View>
             </View>
 
-            {/* Aderência ao plano — slider simplificado com botões */}
+            {/* Aderência */}
             <View style={s.section}>
-              <Text style={s.sectionTitle}>Aderência ao plano: <Text style={s.adherenceValue}>{form.adherence_percent}%</Text></Text>
+              <Text style={s.sectionTitle}>
+                {t('report.adherence')}: <Text style={s.adherenceValue}>{form.adherence_percent}%</Text>
+              </Text>
               <View style={s.adherenceRow}>
                 {[25, 50, 75, 100].map(v => (
                   <TouchableOpacity
@@ -267,69 +251,60 @@ export default function ReportScreen() {
           </View>
         )}
 
-        {/* Loading — enquanto IA processa */}
         {loading && (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF87" />
-            <Text style={s.loadingText}>IA analisando seu dia...</Text>
+            <Text style={s.loadingText}>{t('report.analyzing')}</Text>
           </View>
         )}
 
-        {/* Resultado do feedback da IA */}
         {feedback && (
           <View style={s.feedbackContainer}>
-
-            {/* Score geral com cor dinâmica baseada no alert_level */}
             <View style={[s.scoreCard, { borderColor: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
               <Text style={s.scoreEmoji}>{feedback.clientFeedback?.emoji_summary}</Text>
               <Text style={[s.scoreValue, { color: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
                 {feedback.analysis?.overall_score}/100
               </Text>
-              <Text style={s.scoreLabel}>Score do dia</Text>
+              <Text style={s.scoreLabel}>{t('report.scoreLabel')}</Text>
             </View>
 
-            {/* Mensagem motivacional personalizada */}
             <View style={s.messageCard}>
               <Text style={s.messageSubject}>{feedback.clientFeedback?.subject}</Text>
               <Text style={s.messageGreeting}>{feedback.clientFeedback?.greeting}</Text>
               <Text style={s.messageBody}>{feedback.clientFeedback?.body}</Text>
             </View>
 
-            {/* Pontos positivos */}
             {feedback.analysis?.highlights?.length > 0 && (
               <View style={s.card}>
-                <Text style={s.cardTitle}>✅ Destaques</Text>
+                <Text style={s.cardTitle}>✨ {t('report.highlights')}</Text>
                 {feedback.analysis.highlights.map((h: string, i: number) => (
                   <Text key={i} style={s.cardItem}>• {h}</Text>
                 ))}
               </View>
             )}
 
-            {/* Pontos de atenção */}
             {feedback.analysis?.attention_points?.length > 0 && (
               <View style={[s.card, s.cardWarning]}>
-                <Text style={s.cardTitle}>⚠️ Pontos de atenção</Text>
+                <Text style={s.cardTitle}>⚠️ {t('report.attentionPoints')}</Text>
                 {feedback.analysis.attention_points.map((a: string, i: number) => (
                   <Text key={i} style={s.cardItem}>• {a}</Text>
                 ))}
               </View>
             )}
 
-            {/* Dicas para amanhã */}
             {feedback.analysis?.tomorrow_tips?.length > 0 && (
               <View style={s.card}>
-                <Text style={s.cardTitle}>🎯 Para amanhã</Text>
-                {feedback.analysis.tomorrow_tips.map((t: string, i: number) => (
-                  <Text key={i} style={s.cardItem}>• {t}</Text>
+                <Text style={s.cardTitle}>🎯 {t('report.tomorrowTips')}</Text>
+                {feedback.analysis.tomorrow_tips.map((tip: string, i: number) => (
+                  <Text key={i} style={s.cardItem}>• {tip}</Text>
                 ))}
               </View>
             )}
 
-            {/* Análises detalhadas por área */}
             {[
-              { title: '🥗 Nutrição', text: feedback.analysis?.nutrition_feedback },
-              { title: '🏋️ Treino', text: feedback.analysis?.workout_feedback },
-              { title: '😴 Recuperação', text: feedback.analysis?.recovery_feedback },
+              { title: `🥗 ${t('plan.diet')}`, text: feedback.analysis?.nutrition_feedback },
+              { title: `🏋️ ${t('plan.training')}`, text: feedback.analysis?.workout_feedback },
+              { title: `😴 ${t('report.recovery')}`, text: feedback.analysis?.recovery_feedback },
             ].map((item, i) => item.text ? (
               <View key={i} style={s.card}>
                 <Text style={s.cardTitle}>{item.title}</Text>
@@ -337,24 +312,21 @@ export default function ReportScreen() {
               </View>
             ) : null)}
 
-            {/* Encerramento motivacional */}
             <View style={s.closingCard}>
               <Text style={s.closingText}>{feedback.clientFeedback?.closing}</Text>
             </View>
 
-            {/* Botão para novo relatório */}
             <TouchableOpacity style={s.newReportBtn} onPress={() => setFeedback(null)}>
-              <Text style={s.newReportBtnText}>📝 Novo relatório</Text>
+              <Text style={s.newReportBtnText}>🔄 {t('report.newReport')}</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
 
-      {/* Botão de envio — só aparece enquanto preenche o formulário */}
       {!loading && !feedback && (
         <View style={s.footer}>
           <TouchableOpacity style={s.submitBtn} onPress={submitReport}>
-            <Text style={s.submitBtnText}>🤖 Analisar meu dia com IA</Text>
+            <Text style={s.submitBtnText}>🤖 {t('report.submit')}</Text>
           </TouchableOpacity>
         </View>
       )}

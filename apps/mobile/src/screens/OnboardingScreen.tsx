@@ -1,6 +1,7 @@
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
@@ -16,24 +17,12 @@ const STEPS = [
   { id: 'schedule' },
 ]
 
-const GOALS = [
-  { id: 'muscle_gain', label: 'Ganhar Massa', emoji: '💪', desc: 'Aumentar músculo e força' },
-  { id: 'fat_loss', label: 'Perder Gordura', emoji: '🔥', desc: 'Definição e emagrecimento' },
-  { id: 'maintenance', label: 'Manter Forma', emoji: '⚖️', desc: 'Saúde e bem-estar geral' },
-  { id: 'performance', label: 'Performance', emoji: '🏆', desc: 'Melhorar rendimento esportivo' },
-]
-
-const LEVELS = [
-  { id: 'beginner', label: 'Iniciante', emoji: '🌱', desc: 'Menos de 1 ano de treino' },
-  { id: 'intermediate', label: 'Intermediário', emoji: '⚡', desc: '1 a 3 anos de treino' },
-  { id: 'advanced', label: 'Avançado', emoji: '🔥', desc: 'Mais de 3 anos de treino' },
-]
-
 const DAYS = [3, 4, 5, 6]
 
 export default function OnboardingScreen() {
   const navigation = useNavigation<Nav>()
   const { saveProfile } = useDatabase()
+  const { t } = useTranslation()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -46,6 +35,19 @@ export default function OnboardingScreen() {
     target_weight_kg: '',
     height_cm: '',
   })
+
+  const GOALS = [
+    { id: 'muscle_gain', label: t('goals.muscle_gain'), emoji: '💪', desc: t('onboarding.goalDesc.muscle_gain') },
+    { id: 'fat_loss', label: t('goals.fat_loss'), emoji: '🔥', desc: t('onboarding.goalDesc.fat_loss') },
+    { id: 'maintenance', label: t('goals.maintain'), emoji: '⚖️', desc: t('onboarding.goalDesc.maintain') },
+    { id: 'performance', label: t('goals.performance'), emoji: '⚡', desc: t('onboarding.goalDesc.performance') },
+  ]
+
+  const LEVELS = [
+    { id: 'beginner', label: t('levels.beginner'), emoji: '🌱', desc: t('onboarding.levelDesc.beginner') },
+    { id: 'intermediate', label: t('levels.intermediate'), emoji: '⚡', desc: t('onboarding.levelDesc.intermediate') },
+    { id: 'advanced', label: t('levels.advanced'), emoji: '🔥', desc: t('onboarding.levelDesc.advanced') },
+  ]
 
   async function next() {
     if (step < STEPS.length - 1) {
@@ -80,6 +82,13 @@ export default function OnboardingScreen() {
 
   const progress = (step / (STEPS.length - 1)) * 100
 
+  const bodyFields = [
+    { label: t('onboarding.age'), key: 'age', placeholder: t('onboarding.agePlaceholder'), unit: t('onboarding.ageUnit') },
+    { label: t('onboarding.height'), key: 'height_cm', placeholder: t('onboarding.heightPlaceholder'), unit: 'cm' },
+    { label: t('onboarding.weight'), key: 'current_weight_kg', placeholder: t('onboarding.weightPlaceholder'), unit: 'kg' },
+    { label: t('onboarding.targetWeight'), key: 'target_weight_kg', placeholder: t('onboarding.targetWeightPlaceholder'), unit: 'kg' },
+  ]
+
   return (
     <SafeAreaView style={s.container}>
       {step > 0 && (
@@ -97,13 +106,13 @@ export default function OnboardingScreen() {
         {step === 0 && (
           <View style={s.centerContent}>
             <Text style={s.logo}>BodyOS</Text>
-            <Text style={s.tagline}>Seu protocolo completo{'\n'}gerado por IA</Text>
+            <Text style={s.tagline}>{t('onboarding.tagline')}</Text>
             <View style={s.features}>
               {[
-                { emoji: '🏋️', text: 'Treinos adaptados ao seu corpo' },
-                { emoji: '🥗', text: 'Dieta personalizada por IA' },
-                { emoji: '📊', text: 'Relatórios e feedback diário' },
-                { emoji: '🔄', text: 'Protocolo que evolui com você' },
+                { emoji: '🏋️', text: t('onboarding.feature1') },
+                { emoji: '🥗', text: t('onboarding.feature2') },
+                { emoji: '📊', text: t('onboarding.feature3') },
+                { emoji: '🔄', text: t('onboarding.feature4') },
               ].map((f, i) => (
                 <View key={i} style={s.featureRow}>
                   <Text style={s.featureEmoji}>{f.emoji}</Text>
@@ -117,8 +126,8 @@ export default function OnboardingScreen() {
         {/* Step 1 — Goal */}
         {step === 1 && (
           <View style={s.stepContent}>
-            <Text style={s.stepTitle}>Qual é o seu objetivo?</Text>
-            <Text style={s.stepSubtitle}>A IA vai criar seu protocolo baseado nessa escolha</Text>
+            <Text style={s.stepTitle}>{t('onboarding.goal')}</Text>
+            <Text style={s.stepSubtitle}>{t('onboarding.goalSubtitle')}</Text>
             <View style={s.optionsGrid}>
               {GOALS.map(g => (
                 <TouchableOpacity
@@ -138,8 +147,8 @@ export default function OnboardingScreen() {
         {/* Step 2 — Level */}
         {step === 2 && (
           <View style={s.stepContent}>
-            <Text style={s.stepTitle}>Seu nível de experiência</Text>
-            <Text style={s.stepSubtitle}>Isso define o volume e intensidade do treino</Text>
+            <Text style={s.stepTitle}>{t('onboarding.level')}</Text>
+            <Text style={s.stepSubtitle}>{t('onboarding.levelSubtitle')}</Text>
             <View style={s.optionsList}>
               {LEVELS.map(l => (
                 <TouchableOpacity
@@ -162,27 +171,25 @@ export default function OnboardingScreen() {
         {/* Step 3 — Body data */}
         {step === 3 && (
           <View style={s.stepContent}>
-            <Text style={s.stepTitle}>Seus dados corporais</Text>
-            <Text style={s.stepSubtitle}>Usados para calcular suas calorias e macros ideais</Text>
+            <Text style={s.stepTitle}>{t('onboarding.bodyTitle')}</Text>
+            <Text style={s.stepSubtitle}>{t('onboarding.bodySubtitle')}</Text>
             <View style={s.genderRow}>
-              {['Masculino', 'Feminino'].map(g => (
-                <TouchableOpacity
-                  key={g}
-                  style={[s.genderBtn, form.gender === g && s.genderBtnActive]}
-                  onPress={() => setForm(f => ({ ...f, gender: g }))}
-                >
-                  <Text style={[s.genderText, form.gender === g && s.genderTextActive]}>
-                    {g === 'Masculino' ? '♂️ ' : '♀️ '}{g}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {[t('onboarding.male'), t('onboarding.female')].map((g, idx) => {
+                const genderVal = idx === 0 ? 'Masculino' : 'Feminino'
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[s.genderBtn, form.gender === genderVal && s.genderBtnActive]}
+                    onPress={() => setForm(f => ({ ...f, gender: genderVal }))}
+                  >
+                    <Text style={[s.genderText, form.gender === genderVal && s.genderTextActive]}>
+                      {idx === 0 ? '♂️' : '♀️'} {g}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
             </View>
-            {[
-              { label: 'Idade', key: 'age', placeholder: 'ex: 28', unit: 'anos' },
-              { label: 'Altura', key: 'height_cm', placeholder: 'ex: 178', unit: 'cm' },
-              { label: 'Peso atual', key: 'current_weight_kg', placeholder: 'ex: 80', unit: 'kg' },
-              { label: 'Peso alvo', key: 'target_weight_kg', placeholder: 'ex: 75', unit: 'kg' },
-            ].map(field => (
+            {bodyFields.map(field => (
               <View key={field.key} style={s.inputWrap}>
                 <Text style={s.inputLabel}>{field.label}</Text>
                 <View style={s.inputRow}>
@@ -204,8 +211,8 @@ export default function OnboardingScreen() {
         {/* Step 4 — Schedule */}
         {step === 4 && (
           <View style={s.stepContent}>
-            <Text style={s.stepTitle}>Quantos dias por semana?</Text>
-            <Text style={s.stepSubtitle}>A IA vai distribuir os treinos nos dias ideais</Text>
+            <Text style={s.stepTitle}>{t('onboarding.weeklyDays')}</Text>
+            <Text style={s.stepSubtitle}>{t('onboarding.weeklyDaysSubtitle')}</Text>
             <View style={s.daysRow}>
               {DAYS.map(d => (
                 <TouchableOpacity
@@ -214,18 +221,18 @@ export default function OnboardingScreen() {
                   onPress={() => setForm(f => ({ ...f, weekly_days: d }))}
                 >
                   <Text style={[s.dayBtnNum, form.weekly_days === d && s.dayBtnNumActive]}>{d}</Text>
-                  <Text style={s.dayBtnLabel}>dias</Text>
+                  <Text style={s.dayBtnLabel}>{t('onboarding.days')}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <View style={s.summaryCard}>
-              <Text style={s.summaryTitle}>📋 Resumo do seu perfil</Text>
+              <Text style={s.summaryTitle}>📋 {t('onboarding.summary')}</Text>
               {[
-                { label: 'Objetivo', value: GOALS.find(g => g.id === form.goal)?.label },
-                { label: 'Nível', value: LEVELS.find(l => l.id === form.fitness_level)?.label },
-                { label: 'Dias de treino', value: `${form.weekly_days}x por semana` },
-                { label: 'Peso atual', value: form.current_weight_kg ? `${form.current_weight_kg}kg` : '-' },
-                { label: 'Altura', value: form.height_cm ? `${form.height_cm}cm` : '-' },
+                { label: t('home.profileGoal'), value: GOALS.find(g => g.id === form.goal)?.label },
+                { label: t('home.profileLevel'), value: LEVELS.find(l => l.id === form.fitness_level)?.label },
+                { label: t('onboarding.trainingDays'), value: `${form.weekly_days}x ${t('onboarding.perWeek')}` },
+                { label: t('home.profileWeight'), value: form.current_weight_kg ? `${form.current_weight_kg}kg` : '-' },
+                { label: t('onboarding.height'), value: form.height_cm ? `${form.height_cm}cm` : '-' },
               ].map((item, i) => (
                 <View key={i} style={s.summaryRow}>
                   <Text style={s.summaryLabel}>{item.label}</Text>
@@ -241,7 +248,7 @@ export default function OnboardingScreen() {
       <View style={s.footer}>
         {step > 0 && (
           <TouchableOpacity style={s.btnBack} onPress={back} disabled={saving}>
-            <Text style={s.btnBackText}>← Voltar</Text>
+            <Text style={s.btnBackText}>← {t('common.back')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -252,7 +259,7 @@ export default function OnboardingScreen() {
           {saving
             ? <ActivityIndicator color="#0A0A0F" />
             : <Text style={s.btnNextText}>
-                {step === 0 ? 'Começar agora' : step === STEPS.length - 1 ? '🚀 Gerar meu protocolo' : 'Continuar →'}
+                {step === 0 ? t('onboarding.start') : step === STEPS.length - 1 ? t('onboarding.generate') : t('onboarding.continue')}
               </Text>
           }
         </TouchableOpacity>

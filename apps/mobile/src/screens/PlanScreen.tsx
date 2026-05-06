@@ -1,7 +1,7 @@
 // Tela de plano gerado pela IA — exibe dieta, treino e hidratação mínima
-// Tabs separadas para nutrição e treino evitam scroll excessivo em tela única
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
@@ -13,14 +13,10 @@ type Route = RouteProp<RootStackParamList, 'Plan'>
 const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
 
 const mealIcon: Record<string, string> = {
-  breakfast: '🌅',
-  lunch: '☀️',
+  breakfast: '🍳',
+  lunch: '🍽️',
   dinner: '🌙',
-  snack: '🍎',
-}
-
-const dayName: Record<number, string> = {
-  0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb',
+  snack: '🥜',
 }
 
 export default function PlanScreen() {
@@ -28,6 +24,7 @@ export default function PlanScreen() {
   const route = useRoute<Route>()
   const profile = route.params?.profile
   const { savePlan, loadLatestPlan } = useDatabase()
+  const { t, i18n } = useTranslation()
 
   const [loading, setLoading] = useState(false)
   const [loadingExisting, setLoadingExisting] = useState(true)
@@ -36,7 +33,12 @@ export default function PlanScreen() {
   const [tab, setTab] = useState<'nutrition' | 'workout'>('nutrition')
   const [error, setError] = useState('')
 
-  // Carrega plano existente ao abrir a tela
+  // Nomes dos dias localizados
+  const dayName: Record<number, string> = {
+    0: t('plan.days.sun'), 1: t('plan.days.mon'), 2: t('plan.days.tue'),
+    3: t('plan.days.wed'), 4: t('plan.days.thu'), 5: t('plan.days.fri'), 6: t('plan.days.sat'),
+  }
+
   useEffect(() => {
     async function fetchExistingPlan() {
       setLoadingExisting(true)
@@ -72,6 +74,7 @@ export default function PlanScreen() {
             height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
             age: profile?.age ? Number(profile.age) : undefined,
             gender: profile?.gender,
+            language: i18n.language,
           }),
         }).then(r => r.json()),
         fetch(`${AI_SERVICE_URL}/workout/generate`, {
@@ -86,15 +89,11 @@ export default function PlanScreen() {
             weekly_days: profile?.weekly_days ?? 4,
             current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
             age: profile?.age ? Number(profile.age) : undefined,
+            language: i18n.language,
           }),
         }).then(r => r.json()),
       ])
 
-      // Log para debug — pode remover após confirmar que está funcionando
-      console.log('NUTRITION RAW:', JSON.stringify(nutritionRaw, null, 2))
-      console.log('WORKOUT RAW:', JSON.stringify(workoutRaw, null, 2))
-
-      // Suporte a ambos os formatos: { data: {...} } ou objeto direto
       const nutritionData = nutritionRaw.data ?? nutritionRaw
       const workoutData = workoutRaw.data ?? workoutRaw
 
@@ -105,15 +104,12 @@ export default function PlanScreen() {
       }
 
       setPlan(newPlan)
-
-      // Persiste no Supabase
       setSaving(true)
       await savePlan(newPlan.nutrition, newPlan.workout, newPlan.ai_model)
       setSaving(false)
 
     } catch (e) {
-      console.error('PLAN ERROR:', JSON.stringify(e))
-      setError('Erro ao conectar com o serviço de IA.')
+      setError(t('plan.generateError'))
     } finally {
       setLoading(false)
     }
@@ -127,9 +123,9 @@ export default function PlanScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>← Voltar</Text>
+          <Text style={s.back}>← {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Plano com IA</Text>
+        <Text style={s.title}>{t('plan.title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -139,63 +135,59 @@ export default function PlanScreen() {
             style={[s.tab, tab === 'nutrition' && s.tabActive]}
             onPress={() => setTab('nutrition')}
           >
-            <Text style={[s.tabText, tab === 'nutrition' && s.tabTextActive]}>🥗 Dieta</Text>
+            <Text style={[s.tabText, tab === 'nutrition' && s.tabTextActive]}>🥗 {t('plan.diet')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.tab, tab === 'workout' && s.tabActive]}
             onPress={() => setTab('workout')}
           >
-            <Text style={[s.tabText, tab === 'workout' && s.tabTextActive]}>🏋️ Treino</Text>
+            <Text style={[s.tabText, tab === 'workout' && s.tabTextActive]}>🏋️ {t('plan.training')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Carregando plano existente */}
         {loadingExisting && (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF87" />
-            <Text style={s.loadingText}>Carregando seu plano...</Text>
+            <Text style={s.loadingText}>{t('plan.loadingExisting')}</Text>
           </View>
         )}
 
-        {/* Estado vazio */}
         {!plan && !loading && !loadingExisting && (
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🤖</Text>
-            <Text style={s.emptyTitle}>Gerar seu plano</Text>
-            <Text style={s.emptyText}>A IA vai criar um plano de treino e dieta personalizado para você</Text>
+            <Text style={s.emptyTitle}>{t('plan.emptyTitle')}</Text>
+            <Text style={s.emptyText}>{t('plan.emptyText')}</Text>
           </View>
         )}
 
-        {/* Gerando plano */}
         {loading && (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF87" />
-            <Text style={s.loadingText}>Gerando seu plano personalizado...</Text>
+            <Text style={s.loadingText}>{t('plan.generating')}</Text>
           </View>
         )}
 
-        {/* Salvando */}
         {saving && (
           <View style={s.savingBanner}>
             <ActivityIndicator size="small" color="#00FF87" />
-            <Text style={s.savingText}>Salvando plano...</Text>
+            <Text style={s.savingText}>{t('plan.saving')}</Text>
           </View>
         )}
 
         {error ? <Text style={s.error}>{error}</Text> : null}
 
-        {/* ── ABA NUTRIÇÃO ─────────────────────────────────── */}
+        {/* ABA NUTRIÇÃO */}
         {plan && tab === 'nutrition' && (
           <View style={s.content}>
             <View style={s.macroRow}>
               {[
-                { label: 'Calorias', value: plan.nutrition.daily_calories, unit: 'kcal', color: '#00FF87' },
-                { label: 'Proteína', value: plan.nutrition.protein_g, unit: 'g', color: '#60A5FA' },
-                { label: 'Carbs', value: plan.nutrition.carbs_g, unit: 'g', color: '#F59E0B' },
-                { label: 'Gordura', value: plan.nutrition.fat_g, unit: 'g', color: '#F87171' },
+                { label: t('plan.calories'), value: plan.nutrition.daily_calories, unit: 'kcal', color: '#00FF87' },
+                { label: t('plan.protein'), value: plan.nutrition.protein_g, unit: 'g', color: '#60A5FA' },
+                { label: t('plan.carbs'), value: plan.nutrition.carbs_g, unit: 'g', color: '#F59E0B' },
+                { label: t('plan.fat'), value: plan.nutrition.fat_g, unit: 'g', color: '#F87171' },
               ].map((m, i) => (
                 <View key={i} style={s.macroCard}>
                   <Text style={[s.macroValue, { color: m.color }]}>{m.value}</Text>
@@ -209,7 +201,7 @@ export default function PlanScreen() {
               <View style={s.hydrationCard}>
                 <Text style={s.hydrationEmoji}>💧</Text>
                 <View>
-                  <Text style={s.hydrationTitle}>Hidratação mínima diária</Text>
+                  <Text style={s.hydrationTitle}>{t('plan.hydrationTitle')}</Text>
                   <Text style={s.hydrationAmount}>
                     {formatWater(plan.nutrition.water_ml)}
                     <Text style={s.hydrationSub}> ({plan.nutrition.water_ml}ml)</Text>
@@ -218,11 +210,11 @@ export default function PlanScreen() {
               </View>
             )}
 
-            <Text style={s.sectionTitle}>Refeições</Text>
+            <Text style={s.sectionTitle}>{t('plan.meals')}</Text>
             {plan.nutrition.meals?.map((meal: any, i: number) => (
               <View key={i} style={s.mealCard}>
                 <View style={s.mealHeader}>
-                  <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '🍽️'}</Text>
+                  <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '🍴'}</Text>
                   <View style={s.mealInfo}>
                     <Text style={s.mealName}>{meal.name}</Text>
                     <Text style={s.mealTime}>{meal.time_suggestion} · {meal.total_calories} kcal</Text>
@@ -239,7 +231,7 @@ export default function PlanScreen() {
 
             {plan.nutrition.supplements?.length > 0 && (
               <>
-                <Text style={s.sectionTitle}>Suplementos</Text>
+                <Text style={s.sectionTitle}>{t('plan.supplements')}</Text>
                 {plan.nutrition.supplements.map((sup: any, i: number) => (
                   <View key={i} style={s.supRow}>
                     <Text style={s.supName}>💊 {sup.name}</Text>
@@ -251,19 +243,19 @@ export default function PlanScreen() {
 
             {plan.nutrition.nutritionist_notes && (
               <View style={s.notesCard}>
-                <Text style={s.notesTitle}>📝 Notas do Nutricionista</Text>
+                <Text style={s.notesTitle}>📋 {t('plan.nutritionistNotes')}</Text>
                 <Text style={s.notesText}>{plan.nutrition.nutritionist_notes}</Text>
               </View>
             )}
           </View>
         )}
 
-        {/* ── ABA TREINO ───────────────────────────────────── */}
+        {/* ABA TREINO */}
         {plan && tab === 'workout' && (
           <View style={s.content}>
             <View style={s.workoutHeader}>
               <Text style={s.workoutName}>{plan.workout.name}</Text>
-              <Text style={s.workoutMeta}>{plan.workout.duration_weeks} semanas · {plan.workout.methodology}</Text>
+              <Text style={s.workoutMeta}>{plan.workout.duration_weeks} {t('plan.weeks')} · {plan.workout.methodology}</Text>
             </View>
 
             {plan.workout.sessions?.map((session: any, i: number) => (
@@ -274,13 +266,13 @@ export default function PlanScreen() {
                   </View>
                   <View>
                     <Text style={s.sessionName}>{session.name}</Text>
-                    <Text style={s.sessionMeta}>{session.focus} · {session.estimated_minutes} min</Text>
+                    <Text style={s.sessionMeta}>{session.focus} · {session.estimated_minutes} {t('plan.min')}</Text>
                   </View>
                 </View>
                 {session.exercises?.map((ex: any, j: number) => (
                   <View key={j} style={s.exerciseRow}>
                     <Text style={s.exerciseName}>{ex.name}</Text>
-                    <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} · {ex.rest_seconds}s descanso</Text>
+                    <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} · {ex.rest_seconds}s {t('plan.rest')}</Text>
                     <Text style={s.exerciseTip}>💡 {ex.technique_tip}</Text>
                   </View>
                 ))}
@@ -289,7 +281,7 @@ export default function PlanScreen() {
 
             {plan.workout.trainer_notes && (
               <View style={s.notesCard}>
-                <Text style={s.notesTitle}>📝 Notas do Personal</Text>
+                <Text style={s.notesTitle}>📋 {t('plan.trainerNotes')}</Text>
                 <Text style={s.notesText}>{plan.workout.trainer_notes}</Text>
               </View>
             )}
@@ -300,7 +292,7 @@ export default function PlanScreen() {
       {!loading && !loadingExisting && (
         <View style={s.footer}>
           <TouchableOpacity style={s.btn} onPress={generatePlan}>
-            <Text style={s.btnText}>{plan ? '🔄 Gerar novo plano' : '✨ Gerar meu plano'}</Text>
+            <Text style={s.btnText}>{plan ? t('plan.regenerate') : t('plan.generate')}</Text>
           </TouchableOpacity>
         </View>
       )}

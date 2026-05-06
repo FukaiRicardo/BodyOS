@@ -1,5 +1,6 @@
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LineChart, BarChart } from 'react-native-chart-kit'
@@ -28,6 +29,7 @@ export default function ProgressScreen() {
   const route = useRoute<Route>()
   const profile = route.params?.profile
   const { loadReports } = useDatabase()
+  const { t } = useTranslation()
 
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,9 +89,9 @@ export default function ProgressScreen() {
     <SafeAreaView style={s.container}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>← Voltar</Text>
+          <Text style={s.back}>← {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={s.title}>Meu Progresso</Text>
+        <Text style={s.title}>{t('progress.title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -98,43 +100,43 @@ export default function ProgressScreen() {
         {loading ? (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF88" />
-            <Text style={s.loadingText}>Carregando progresso...</Text>
+            <Text style={s.loadingText}>{t('common.loading')}</Text>
           </View>
         ) : !hasData ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>📊</Text>
-            <Text style={s.emptyTitle}>Sem dados ainda</Text>
-            <Text style={s.emptyText}>Complete relatórios diários para ver seu progresso aqui</Text>
+            <Text style={s.emptyEmoji}>📈</Text>
+            <Text style={s.emptyTitle}>{t('progress.noData')}</Text>
+            <Text style={s.emptyText}>{t('progress.noDataDesc')}</Text>
           </View>
         ) : (
           <>
-            <Text style={s.sectionTitle}>Resumo geral</Text>
+            <Text style={s.sectionTitle}>{t('progress.generalSummary')}</Text>
             <View style={s.statsGrid}>
               <View style={s.statCard}>
                 <Text style={s.statEmoji}>📅</Text>
                 <Text style={s.statValue}>{totalDays}</Text>
-                <Text style={s.statLabel}>Dias</Text>
+                <Text style={s.statLabel}>{t('progress.days')}</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={s.statEmoji}>💪</Text>
                 <Text style={[s.statValue, { color: '#00FF88' }]}>{trainedDays}</Text>
-                <Text style={s.statLabel}>Treinos</Text>
+                <Text style={s.statLabel}>{t('progress.workoutsCompleted')}</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={s.statEmoji}>⭐</Text>
                 <Text style={[s.statValue, { color: '#F59E0B' }]}>{avgScore || '—'}</Text>
-                <Text style={s.statLabel}>Score médio</Text>
+                <Text style={s.statLabel}>{t('progress.avgScore')}</Text>
               </View>
               <View style={s.statCard}>
                 <Text style={s.statEmoji}>😴</Text>
-                <Text style={[s.statValue, { color: '#A78BFA' }]}>{avgSleep}h</Text>
-                <Text style={s.statLabel}>Sono médio</Text>
+                <Text style={[s.statValue, { color: '#A78BFA' }]}>{avgSleep}{t('progress.hours')}</Text>
+                <Text style={s.statLabel}>{t('progress.avgSleep')}</Text>
               </View>
             </View>
 
             <View style={s.adherenceCard}>
               <View style={s.adherenceHeader}>
-                <Text style={s.adherenceLabel}>Aderência média ao plano</Text>
+                <Text style={s.adherenceLabel}>{t('progress.avgAdherence')}</Text>
                 <Text style={s.adherencePercent}>{avgAdherence}%</Text>
               </View>
               <View style={s.adherenceBar}>
@@ -142,19 +144,19 @@ export default function ProgressScreen() {
               </View>
             </View>
 
-            <Text style={s.sectionTitle}>Últimos 7 dias</Text>
+            <Text style={s.sectionTitle}>{t('progress.last7days')}</Text>
             <View style={s.tabs}>
               {[
-                { id: 'score', label: '⭐ Score' },
-                { id: 'weight', label: '⚖️ Peso' },
-                { id: 'adherence', label: '🎯 Aderência' },
-              ].map(t => (
+                { id: 'score', label: `⭐ ${t('progress.score')}` },
+                { id: 'weight', label: `⚖️ ${t('progress.weight')}` },
+                { id: 'adherence', label: `📊 ${t('progress.adherenceEvolution')}` },
+              ].map(tabItem => (
                 <TouchableOpacity
-                  key={t.id}
-                  style={[s.tab, tab === t.id && s.tabActive]}
-                  onPress={() => setTab(t.id as any)}
+                  key={tabItem.id}
+                  style={[s.tab, tab === tabItem.id && s.tabActive]}
+                  onPress={() => setTab(tabItem.id as any)}
                 >
-                  <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
+                  <Text style={[s.tabText, tab === tabItem.id && s.tabTextActive]}>{tabItem.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -171,13 +173,13 @@ export default function ProgressScreen() {
                   withInnerLines={true}
                   withOuterLines={false}
                 />
-                <Text style={s.chartNote}>Score de 0 a 100 gerado pela IA</Text>
+                <Text style={s.chartNote}>{t('progress.scoreNote')}</Text>
               </View>
             )}
 
             {tab === 'score' && scoreData.length <= 1 && (
               <View style={s.noChartData}>
-                <Text style={s.noChartText}>Precisa de pelo menos 2 relatórios para exibir o gráfico</Text>
+                <Text style={s.noChartText}>{t('progress.needMoreReports')}</Text>
               </View>
             )}
 
@@ -198,13 +200,13 @@ export default function ProgressScreen() {
                   withOuterLines={false}
                   yAxisSuffix=" kg"
                 />
-                <Text style={s.chartNote}>Peso corporal registrado nos relatórios</Text>
+                <Text style={s.chartNote}>{t('progress.weightNote')}</Text>
               </View>
             )}
 
             {tab === 'weight' && weightData.length <= 1 && (
               <View style={s.noChartData}>
-                <Text style={s.noChartText}>Precisa de pelo menos 2 registros de peso para exibir o gráfico</Text>
+                <Text style={s.noChartText}>{t('progress.needMoreWeight')}</Text>
               </View>
             )}
 
@@ -224,11 +226,11 @@ export default function ProgressScreen() {
                   yAxisLabel=""
                   yAxisSuffix="%"
                 />
-                <Text style={s.chartNote}>Aderência ao plano por dia</Text>
+                <Text style={s.chartNote}>{t('progress.adherenceNote')}</Text>
               </View>
             )}
 
-            <Text style={s.sectionTitle}>Histórico</Text>
+            <Text style={s.sectionTitle}>{t('progress.history')}</Text>
             {[...reports].reverse().slice(0, 10).map((report, i) => (
               <View key={i} style={s.reportRow}>
                 <View style={s.reportLeft}>
@@ -237,7 +239,7 @@ export default function ProgressScreen() {
                 </View>
                 <View style={s.reportMid}>
                   <Text style={s.reportStat}>⚡ {report.energy_level}/5</Text>
-                  <Text style={s.reportStat}>💪 {report.workout_completed ? 'Sim' : 'Não'}</Text>
+                  <Text style={s.reportStat}>💪 {report.workout_completed ? t('report.yes') : t('report.no')}</Text>
                 </View>
                 <View style={s.reportRight}>
                   {report.analysis?.overall_score != null && (

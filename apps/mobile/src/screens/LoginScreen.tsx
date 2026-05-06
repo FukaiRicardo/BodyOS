@@ -4,17 +4,13 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, Alert
 } from 'react-native'
+import { useTranslation } from 'react-i18next'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
 import { useAuth } from '../context/AuthContext'
-import { useTranslation } from 'react-i18next'
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>
-}
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 export default function LoginScreen({ navigation }: Props) {
@@ -26,19 +22,19 @@ export default function LoginScreen({ navigation }: Props) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert(t('common.error'), t('auth.email') + ' e ' + t('auth.password') + ' são obrigatórios.')
+      Alert.alert(t('common.error'), t('auth.fillEmailPassword'))
       return
     }
-    if (!isValidEmail(email)) {
-      Alert.alert(t('common.error'), 'Digite um email válido.')
-      return
-    }
+
     setLoading(true)
     const { error } = await signIn(email, password)
     setLoading(false)
+
     if (error) {
-      Alert.alert(t('common.error'), 'Email ou senha inválidos.')
+      // Mensagem genérica — não revela se email existe ou não (segurança)
+      Alert.alert(t('auth.loginError'), t('auth.invalidCredentials'))
     }
+    // Se sucesso: AuthContext atualiza session → App.tsx redireciona automaticamente
   }
 
   return (
@@ -48,7 +44,7 @@ export default function LoginScreen({ navigation }: Props) {
     >
       <View style={styles.inner}>
         <Text style={styles.logo}>BodyOS</Text>
-        <Text style={styles.subtitle}>Seu protocolo inteligente de treino e dieta</Text>
+        <Text style={styles.subtitle}>{t('auth.subtitle')}</Text>
 
         <TextInput
           style={styles.input}

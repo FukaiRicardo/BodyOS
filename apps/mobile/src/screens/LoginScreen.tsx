@@ -7,32 +7,38 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
 import { useAuth } from '../context/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>
 }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth()
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Erro', 'Preencha email e senha.')
+      Alert.alert(t('common.error'), t('auth.email') + ' e ' + t('auth.password') + ' são obrigatórios.')
       return
     }
-
+    if (!isValidEmail(email)) {
+      Alert.alert(t('common.error'), 'Digite um email válido.')
+      return
+    }
     setLoading(true)
     const { error } = await signIn(email, password)
     setLoading(false)
-
     if (error) {
-      // Mensagem genérica — não revela se email existe ou não (segurança)
-      Alert.alert('Erro ao entrar', 'Email ou senha inválidos.')
+      Alert.alert(t('common.error'), 'Email ou senha inválidos.')
     }
-    // Se sucesso: AuthContext atualiza session → App.tsx redireciona automaticamente
   }
 
   return (
@@ -46,7 +52,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('auth.email')}
           placeholderTextColor="#555"
           keyboardType="email-address"
           autoCapitalize="none"
@@ -57,7 +63,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         <TextInput
           style={styles.input}
-          placeholder="Senha"
+          placeholder={t('auth.password')}
           placeholderTextColor="#555"
           secureTextEntry
           autoCapitalize="none"
@@ -73,12 +79,14 @@ export default function LoginScreen({ navigation }: Props) {
         >
           {loading
             ? <ActivityIndicator color="#000" />
-            : <Text style={styles.buttonText}>Entrar</Text>
+            : <Text style={styles.buttonText}>{t('auth.login')}</Text>
           }
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-          <Text style={styles.link}>Não tem conta? <Text style={styles.linkBold}>Criar conta</Text></Text>
+          <Text style={styles.link}>
+            {t('auth.noAccount')} <Text style={styles.linkBold}>{t('auth.register')}</Text>
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

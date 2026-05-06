@@ -1,6 +1,7 @@
 // Home dashboard — exibe resumo do perfil e stats reais do dia via Supabase
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../App'
@@ -9,19 +10,6 @@ import { useDatabase } from '../context/DatabaseContext'
 import { Report } from '../lib/supabase'
 
 type Route = RouteProp<RootStackParamList, 'Home'>
-
-const GOAL_LABELS: Record<string, string> = {
-  muscle_gain: '💪 Ganhar massa',
-  fat_loss: '🔥 Perder gordura',
-  maintain: '⚖️ Manter forma',
-  performance: '⚡ Performance',
-}
-
-const LEVEL_LABELS: Record<string, string> = {
-  beginner: 'Iniciante',
-  intermediate: 'Intermediário',
-  advanced: 'Avançado',
-}
 
 const ALERT_COLORS: Record<string, string> = {
   green: '#00FF88',
@@ -34,6 +22,7 @@ export default function HomeScreen() {
   const route = useRoute<Route>()
   const { signOut, user } = useAuth()
   const { loadTodayReport, loadLatestPlan, adaptProtocol } = useDatabase()
+  const { t } = useTranslation()
   const profile = route.params?.profile
 
   const [todayReport, setTodayReport] = useState<Report | null>(null)
@@ -75,7 +64,7 @@ export default function HomeScreen() {
     setAdapting(false)
 
     if (error) {
-      Alert.alert('Não foi possível adaptar', typeof error === 'string' ? error : 'Tente novamente mais tarde.')
+      Alert.alert(t('home.adaptError'), typeof error === 'string' ? error : t('common.retry'))
       return
     }
 
@@ -90,11 +79,11 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.greeting}>Olá! 👋</Text>
+            <Text style={s.greeting}>{t('home.greeting')}</Text>
             <Text style={s.email}>{user?.email}</Text>
           </View>
           <TouchableOpacity style={s.signOutBtn} onPress={signOut}>
-            <Text style={s.signOutText}>Sair</Text>
+            <Text style={s.signOutText}>{t('home.signOut')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -102,7 +91,7 @@ export default function HomeScreen() {
         {todayReport && score !== undefined && score !== null && (
           <View style={[s.scoreCard, { borderColor: scoreColor }]}>
             <View style={s.scoreLeft}>
-              <Text style={s.scoreLabel}>Score de hoje</Text>
+              <Text style={s.scoreLabel}>{t('home.scoreLabel')}</Text>
               <Text style={[s.scoreValue, { color: scoreColor }]}>{score}/100</Text>
               <Text style={s.scoreMessage} numberOfLines={2}>{motivationalMessage}</Text>
             </View>
@@ -114,22 +103,26 @@ export default function HomeScreen() {
 
         {/* Card do perfil */}
         <View style={s.profileCard}>
-          <Text style={s.profileTitle}>Seu Perfil</Text>
+          <Text style={s.profileTitle}>{t('home.profileTitle')}</Text>
           <View style={s.profileGrid}>
             <View style={s.profileItem}>
-              <Text style={s.profileLabel}>Objetivo</Text>
-              <Text style={s.profileValue}>{GOAL_LABELS[profile?.goal] ?? profile?.goal ?? '—'}</Text>
+              <Text style={s.profileLabel}>{t('home.profileGoal')}</Text>
+              <Text style={s.profileValue}>
+                {profile?.goal ? t(`goals.${profile.goal}`, { defaultValue: profile.goal }) : '—'}
+              </Text>
             </View>
             <View style={s.profileItem}>
-              <Text style={s.profileLabel}>Nível</Text>
-              <Text style={s.profileValue}>{LEVEL_LABELS[profile?.fitness_level] ?? profile?.fitness_level ?? '—'}</Text>
+              <Text style={s.profileLabel}>{t('home.profileLevel')}</Text>
+              <Text style={s.profileValue}>
+                {profile?.fitness_level ? t(`levels.${profile.fitness_level}`, { defaultValue: profile.fitness_level }) : '—'}
+              </Text>
             </View>
             <View style={s.profileItem}>
-              <Text style={s.profileLabel}>Peso atual</Text>
+              <Text style={s.profileLabel}>{t('home.profileWeight')}</Text>
               <Text style={s.profileValue}>{profile?.current_weight_kg ? `${profile.current_weight_kg}kg` : '—'}</Text>
             </View>
             <View style={s.profileItem}>
-              <Text style={s.profileLabel}>Dias/semana</Text>
+              <Text style={s.profileLabel}>{t('home.profileDays')}</Text>
               <Text style={s.profileValue}>{profile?.weekly_days ?? '—'}x</Text>
             </View>
           </View>
@@ -143,10 +136,10 @@ export default function HomeScreen() {
           <Text style={s.ctaPrimaryEmoji}>🤖</Text>
           <View style={s.ctaTextWrap}>
             <Text style={s.ctaPrimaryTitle}>
-              {hasPlan ? 'Ver meu Protocolo' : 'Gerar Protocolo com IA'}
+              {hasPlan ? t('home.ctaPlanTitle_existing') : t('home.ctaPlanTitle_new')}
             </Text>
             <Text style={s.ctaPrimarySubtitle}>
-              {hasPlan ? 'Dieta + treino personalizados' : 'Dieta + treino personalizados para você'}
+              {hasPlan ? t('home.ctaPlanSubtitle_existing') : t('home.ctaPlanSubtitle_new')}
             </Text>
           </View>
           <Text style={s.ctaArrow}>→</Text>
@@ -160,10 +153,10 @@ export default function HomeScreen() {
           <Text style={s.ctaSecondaryEmoji}>{todayReport ? '✅' : '📋'}</Text>
           <View style={s.ctaTextWrap}>
             <Text style={s.ctaSecondaryTitle}>
-              {todayReport ? 'Relatório enviado hoje' : 'Relatório Diário'}
+              {todayReport ? t('home.ctaReportTitle_done') : t('home.ctaReportTitle_pending')}
             </Text>
             <Text style={s.ctaSecondarySubtitle}>
-              {todayReport ? 'Toque para ver sua análise' : 'Registre seu dia e receba análise da IA'}
+              {todayReport ? t('home.ctaReportSubtitle_done') : t('home.ctaReportSubtitle_pending')}
             </Text>
           </View>
           <Text style={s.ctaArrowDark}>→</Text>
@@ -179,64 +172,64 @@ export default function HomeScreen() {
             {adapting ? (
               <View style={s.adaptBtnInner}>
                 <ActivityIndicator color="#A78BFA" size="small" />
-                <Text style={s.adaptBtnText}>IA analisando seu histórico...</Text>
+                <Text style={s.adaptBtnText}>{t('home.adaptingBtn')}</Text>
               </View>
             ) : (
               <View style={s.adaptBtnInner}>
-  <Text style={s.adaptBtnEmoji}>🔄</Text>
-  <View style={{ flex: 1 }}>
-    <Text style={s.adaptBtnText}>Adaptar Protocolo</Text>
-    <Text style={s.adaptBtnSub}>IA ajusta com base no seu histórico</Text>
-  </View>
-</View>
+                <Text style={s.adaptBtnEmoji}>🔄</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.adaptBtnText}>{t('home.adaptBtn')}</Text>
+                  <Text style={s.adaptBtnSub}>{t('home.adaptBtnSub')}</Text>
+                </View>
+              </View>
             )}
           </TouchableOpacity>
         )}
 
         {/* Stats do dia */}
-        <Text style={s.sectionTitle}>Resumo do dia</Text>
+        <Text style={s.sectionTitle}>{t('home.sectionSummary')}</Text>
 
         {loadingStats ? (
           <View style={s.statsLoading}>
             <ActivityIndicator color="#00FF88" size="small" />
           </View>
         ) : (
-        
           <View style={s.statsGrid}>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>⚡</Text>
               <Text style={[s.statValue, todayReport && { color: '#00FF88' }]}>
                 {todayReport ? `${todayReport.energy_level}/5` : '—'}
               </Text>
-              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Energia</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.energy')}</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>💧</Text>
               <Text style={[s.statValue, todayReport?.water_ml != null && { color: '#60A5FA' }]}>
                 {todayReport?.water_ml ? `${(todayReport.water_ml / 1000).toFixed(1)}L` : '—'}
               </Text>
-              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Água</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.water')}</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>😴</Text>
               <Text style={[s.statValue, todayReport?.sleep_hours != null && { color: '#A78BFA' }]}>
                 {todayReport?.sleep_hours ? `${todayReport.sleep_hours}h` : '—'}
               </Text>
-              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Sono</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.sleep')}</Text>
             </View>
             <View style={s.statCard}>
               <Text style={s.statEmoji}>💪</Text>
               <Text style={[s.statValue, { color: todayReport?.workout_completed ? '#00FF88' : '#F87171' }]}>
-                {todayReport ? (todayReport.workout_completed ? 'Sim' : 'Não') : '—'}
+                {todayReport ? (todayReport.workout_completed ? t('home.stats.workoutYes') : t('home.stats.workoutNo')) : '—'}
               </Text>
-              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>Treino</Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.workout')}</Text>
             </View>
           </View>
         )}
+
         {/* Peso do dia */}
         {todayReport?.weight_kg && (
           <View style={s.weightCard}>
-            <Text style={s.weightLabel}>⚖️ Peso de hoje</Text>
+            <Text style={s.weightLabel}>{t('home.stats.weightToday')}</Text>
             <Text style={s.weightValue}>{todayReport.weight_kg} kg</Text>
           </View>
         )}
@@ -245,7 +238,7 @@ export default function HomeScreen() {
         {todayReport && (
           <View style={s.adherenceCard}>
             <View style={s.adherenceHeader}>
-              <Text style={s.adherenceLabel}>Aderência ao plano</Text>
+              <Text style={s.adherenceLabel}>{t('home.stats.adherence')}</Text>
               <Text style={[s.adherencePercent, { color: scoreColor }]}>
                 {todayReport.adherence_percent}%
               </Text>
@@ -264,7 +257,7 @@ export default function HomeScreen() {
           style={s.progressBtn}
           onPress={() => navigation.navigate('Progress', { profile })}
         >
-          <Text style={s.progressBtnText}>📈 Ver meu progresso</Text>
+          <Text style={s.progressBtnText}>{t('home.progressBtn')}</Text>
         </TouchableOpacity>
 
         {/* Atualizar perfil */}
@@ -272,7 +265,7 @@ export default function HomeScreen() {
           style={s.editProfileBtn}
           onPress={() => navigation.navigate('Onboarding')}
         >
-          <Text style={s.editProfileText}>✏️ Atualizar perfil</Text>
+          <Text style={s.editProfileText}>{t('home.editProfileBtn')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 32 }} />
@@ -288,12 +281,12 @@ export default function HomeScreen() {
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.modalTitle}>🔄 Protocolo Adaptado!</Text>
+              <Text style={s.modalTitle}>{t('home.modal.title')}</Text>
 
               {adaptationResult && (
                 <>
                   <View style={s.modalSection}>
-                    <Text style={s.modalLabel}>Motivo da adaptação</Text>
+                    <Text style={s.modalLabel}>{t('home.modal.reasonLabel')}</Text>
                     <Text style={s.modalText}>
                       {adaptationResult.adaptation_reason ?? adaptationResult.motivo_adaptacao ?? '—'}
                     </Text>
@@ -301,7 +294,7 @@ export default function HomeScreen() {
 
                   {(adaptationResult.changes ?? adaptationResult.mudancas)?.length > 0 && (
                     <View style={s.modalSection}>
-                      <Text style={s.modalLabel}>Mudanças realizadas</Text>
+                      <Text style={s.modalLabel}>{t('home.modal.changesLabel')}</Text>
                       {(adaptationResult.changes ?? adaptationResult.mudancas).map((c: string, i: number) => (
                         <Text key={i} style={s.modalItem}>• {c}</Text>
                       ))}
@@ -310,7 +303,7 @@ export default function HomeScreen() {
 
                   {(adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico) && (
                     <View style={s.modalSection}>
-                      <Text style={s.modalLabel}>Nova meta calórica</Text>
+                      <Text style={s.modalLabel}>{t('home.modal.calorieLabel')}</Text>
                       <Text style={[s.modalText, { color: '#00FF88', fontSize: 20, fontWeight: '800' }]}>
                         {adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico} kcal
                       </Text>
@@ -319,7 +312,7 @@ export default function HomeScreen() {
 
                   {(adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao) && (
                     <View style={s.modalSection}>
-                      <Text style={s.modalLabel}>Recuperação</Text>
+                      <Text style={s.modalLabel}>{t('home.modal.recoveryLabel')}</Text>
                       <Text style={s.modalText}>
                         {adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao}
                       </Text>
@@ -341,14 +334,14 @@ export default function HomeScreen() {
                   navigation.navigate('Plan', { profile })
                 }}
               >
-                <Text style={s.modalBtnText}>Ver novo protocolo →</Text>
+                <Text style={s.modalBtnText}>{t('home.modal.viewPlan')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={s.modalBtnSecondary}
                 onPress={() => setShowAdaptModal(false)}
               >
-                <Text style={s.modalBtnSecondaryText}>Fechar</Text>
+                <Text style={s.modalBtnSecondaryText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -399,10 +392,10 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   statsLoading: { height: 90, justifyContent: 'center', alignItems: 'center' },
   statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
- statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 8, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#1E1E2E' },
-statEmoji: { fontSize: 16 },
-statValue: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
-statLabel: { fontSize: 9, color: '#555', textAlign: 'center' },
+  statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 8, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#1E1E2E' },
+  statEmoji: { fontSize: 16 },
+  statValue: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 9, color: '#555', textAlign: 'center' },
   weightCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#1E1E2E', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   weightLabel: { fontSize: 14, color: '#A0A0B0', fontWeight: '600' },
   weightValue: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },

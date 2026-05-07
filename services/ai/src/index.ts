@@ -18,7 +18,7 @@ import {
 const app = express()
 const PORT = process.env.PORT ?? 3001
 
-// ═══ Segurança — Headers ══════════════════════════════════════
+// ─── Segurança - Headers ───────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
@@ -26,7 +26,7 @@ app.use(helmet({
   crossOriginOpenerPolicy: false,
 }))
 
-// ═══ CORS — só origens autorizadas ═══════════════════════════
+// ─── CORS - só origens autorizadas ────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:19006',
@@ -36,7 +36,6 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permite requests sem origin (mobile apps nativos, Expo Go)
     if (!origin || ALLOWED_ORIGINS.some(o => origin.startsWith(o.trim()))) {
       callback(null, true)
     } else {
@@ -47,31 +46,29 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'X-API-Key'],
 }))
 
-// ═══ Body Parser — limite seguro ══════════════════════════════
+// ─── Body Parser - limite seguro ──────────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }))
 
-// ═══ Rate Limiting ════════════════════════════════════════════
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
 const limiter = rateLimit({
-  windowMs: 60 * 1000,       // 1 minuto
-  max: 20,                    // 20 requests por IP por minuto
+  windowMs: 60 * 1000,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
-  skip: (req) => req.path === '/health', // health check não conta
+  skip: (req) => req.path === '/health',
 })
 
 app.use(limiter)
 
-// ═══ API Key — autenticação interna ══════════════════════════
+// ─── API Key - autenticação interna ───────────────────────────────────────────
 const AI_API_KEY = process.env.AI_API_KEY
 
 const requireApiKey = (req: Request, res: Response, next: NextFunction): void => {
-  // Se não tiver API key configurada, pula (desenvolvimento local)
   if (!AI_API_KEY) {
     next()
     return
   }
-
   const key = req.headers['x-api-key']
   if (!key || key !== AI_API_KEY) {
     res.status(401).json({ error: 'Unauthorized' })
@@ -80,7 +77,9 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction): void =>
   next()
 }
 
-// ═══ Validação de Payload com Zod ════════════════════════════
+// ─── Schemas Zod ──────────────────────────────────────────────────────────────
+const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
+
 const UserProfileSchema = z.object({
   goal: z.string().min(1).max(50),
   fitness_level: z.string().min(1).max(50),
@@ -93,6 +92,7 @@ const UserProfileSchema = z.object({
   height_cm: z.number().min(50).max(300).optional(),
   age: z.number().int().min(10).max(120).optional(),
   gender: z.string().max(20).optional(),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
 })
 
 const DailyReportSchema = z.object({
@@ -111,6 +111,7 @@ const DailyReportSchema = z.object({
   mood: z.string().max(50).optional(),
   water_ml: z.number().min(0).max(10000).optional(),
   adherence_percent: z.number().int().min(0).max(100),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
 })
 
 const AdaptationSchema = z.object({
@@ -118,6 +119,7 @@ const AdaptationSchema = z.object({
   current_plan: z.object({}).passthrough(),
   reports: z.array(DailyReportSchema).min(1).max(30),
   weeks_on_plan: z.number().int().min(1).max(52),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
 })
 
 const validate = (schema: z.ZodSchema) =>
@@ -134,7 +136,7 @@ const validate = (schema: z.ZodSchema) =>
     next()
   }
 
-// ═══ Request ID — rastreabilidade ════════════════════════════
+// ─── Request ID - rastreabilidade ─────────────────────────────────────────────
 app.use((req: Request, res: Response, next: NextFunction) => {
   const id = (req.headers['x-request-id'] as string) ?? crypto.randomUUID()
   req.headers['x-request-id'] = id
@@ -142,7 +144,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
-// ═══ Routes ══════════════════════════════════════════════════
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (_: Request, res: Response) => {
   res.json({ status: 'ok', service: 'ai', timestamp: new Date().toISOString() })
@@ -218,12 +220,12 @@ app.post('/protocol/adapt',
   }
 )
 
-// ═══ 404 Handler ═════════════════════════════════════════════
+// ─── 404 Handler ──────────────────────────────────────────────────────────────
 app.use((_: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' })
 })
 
-// ═══ Error Handler ════════════════════════════════════════════
+// ─── Error Handler ────────────────────────────────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err.message)
   res.status(500).json({ error: 'Internal server error' })

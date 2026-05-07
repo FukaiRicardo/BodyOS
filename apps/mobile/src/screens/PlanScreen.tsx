@@ -1,4 +1,3 @@
-// Tela de plano gerado pela IA — exibe dieta, treino e hidratação mínima
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,7 +32,6 @@ export default function PlanScreen() {
   const [tab, setTab] = useState<'nutrition' | 'workout'>('nutrition')
   const [error, setError] = useState('')
 
-  // Nomes dos dias localizados
   const dayName: Record<number, string> = {
     0: t('plan.days.sun'), 1: t('plan.days.mon'), 2: t('plan.days.tue'),
     3: t('plan.days.wed'), 4: t('plan.days.thu'), 5: t('plan.days.fri'), 6: t('plan.days.sat'),
@@ -42,15 +40,20 @@ export default function PlanScreen() {
   useEffect(() => {
     async function fetchExistingPlan() {
       setLoadingExisting(true)
-      const { data } = await loadLatestPlan()
-      if (data && data.nutrition_plan && data.workout_plan) {
-        setPlan({
-          nutrition: data.nutrition_plan,
-          workout: data.workout_plan,
-          ai_model: data.ai_model ?? undefined,
-        })
+      try {
+        const { data } = await loadLatestPlan()
+        if (data && data.nutrition_plan && data.workout_plan) {
+          setPlan({
+            nutrition: data.nutrition_plan,
+            workout: data.workout_plan,
+            ai_model: data.ai_model ?? undefined,
+          })
+        }
+      } catch (e) {
+        console.error("Erro ao carregar plano:", e)
+      } finally {
+        setLoadingExisting(false)
       }
-      setLoadingExisting(false)
     }
     fetchExistingPlan()
   }, [])
@@ -58,6 +61,11 @@ export default function PlanScreen() {
   async function generatePlan() {
     setLoading(true)
     setError('')
+    
+    // CORREÇÃO: Incluído 'es' na lista de idiomas permitidos para o backend
+    const currentLang = i18n.language?.split('-')[0].toLowerCase() || 'pt'
+    const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
+
     try {
       const [nutritionRaw, workoutRaw] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
@@ -74,7 +82,7 @@ export default function PlanScreen() {
             height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
             age: profile?.age ? Number(profile.age) : undefined,
             gender: profile?.gender,
-            language: i18n.language,
+            language: deviceLanguage,
           }),
         }).then(r => r.json()),
         fetch(`${AI_SERVICE_URL}/workout/generate`, {
@@ -89,7 +97,7 @@ export default function PlanScreen() {
             weekly_days: profile?.weekly_days ?? 4,
             current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
             age: profile?.age ? Number(profile.age) : undefined,
-            language: i18n.language,
+            language: deviceLanguage,
           }),
         }).then(r => r.json()),
       ])
@@ -109,6 +117,7 @@ export default function PlanScreen() {
       setSaving(false)
 
     } catch (e) {
+      console.error(e)
       setError(t('plan.generateError'))
     } finally {
       setLoading(false)
@@ -147,7 +156,6 @@ export default function PlanScreen() {
       )}
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
-
         {loadingExisting && (
           <View style={s.loadingBox}>
             <ActivityIndicator size="large" color="#00FF87" />
@@ -180,7 +188,7 @@ export default function PlanScreen() {
         {error ? <Text style={s.error}>{error}</Text> : null}
 
         {/* ABA NUTRIÇÃO */}
-        {plan && tab === 'nutrition' && (
+        {plan && tab === 'nutrition' && plan.nutrition && (
           <View style={s.content}>
             <View style={s.macroRow}>
               {[
@@ -251,7 +259,7 @@ export default function PlanScreen() {
         )}
 
         {/* ABA TREINO */}
-        {plan && tab === 'workout' && (
+        {plan && tab === 'workout' && plan.workout && (
           <View style={s.content}>
             <View style={s.workoutHeader}>
               <Text style={s.workoutName}>{plan.workout.name}</Text>
@@ -261,8 +269,9 @@ export default function PlanScreen() {
             {plan.workout.sessions?.map((session: any, i: number) => (
               <View key={i} style={s.sessionCard}>
                 <View style={s.sessionHeader}>
+                  {/* CORREÇÃO: View no lugar de div */}
                   <View style={s.dayBadge}>
-                    <Text style={s.dayText}>{dayName[session.day_of_week]}</Text>
+                    <Text style={s.dayText}>{dayName[session.day_of_week] || '?'}</Text>
                   </View>
                   <View>
                     <Text style={s.sessionName}>{session.name}</Text>
@@ -273,7 +282,7 @@ export default function PlanScreen() {
                   <View key={j} style={s.exerciseRow}>
                     <Text style={s.exerciseName}>{ex.name}</Text>
                     <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} · {ex.rest_seconds}s {t('plan.rest')}</Text>
-                    <Text style={s.exerciseTip}>💡 {ex.technique_tip}</Text>
+                    {ex.technique_tip ? <Text style={s.exerciseTip}>💡 {ex.technique_tip}</Text> : null}
                   </View>
                 ))}
               </View>
@@ -339,7 +348,7 @@ const s = StyleSheet.create({
   mealName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   mealTime: { fontSize: 13, color: '#A0A0B0', marginTop: 2 },
   foodRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#2A2A3E' },
-  foodName: { fontSize: 13, color: '#E0E0E0', flex: 1, flexWrap: 'wrap' },
+  foodName: { fontSize: 13, color: '#FFFFFF', flex: 1, paddingLeft: 4, flexWrap: 'wrap' },
   foodDetail: { fontSize: 13, color: '#A0A0B0' },
   supRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#1A1A2E', padding: 14, borderRadius: 12 },
   supName: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },

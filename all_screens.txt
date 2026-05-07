@@ -1,0 +1,2567 @@
+﻿=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\context\AuthContext.tsx ===
+import 'react-native-url-polyfill/auto'
+import React, { createContext, useContext, useEffect, useState } from 'react'
+import { Session, User, AuthError, AuthChangeEvent } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
+
+type AuthContextType = {
+  session: Session | null
+  user: User | null
+  loading: boolean
+  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      setSession(data.session)
+      setUser(data.session?.user ?? null)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const signUp = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
+    const { error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    return { error }
+  }
+
+  const signIn = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    return { error }
+  }
+
+  const signOut = async (): Promise<void> => {
+    await supabase.auth.signOut()
+  }
+
+  return (
+    <AuthContext.Provider value={{ session, user, loading, signUp, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext)
+  if (!context) throw new Error('useAuth deve ser usado dentro de AuthProvider')
+  return context
+}
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\context\DatabaseContext.tsx ===
+import React, { createContext, useContext } from 'react'
+import { supabase, Profile, Plan, Report } from '../lib/supabase'
+import { useAuth } from './AuthContext'
+
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
+
+type DatabaseContextType = {
+  // Profile
+  saveProfile: (profile: Omit<Profile, 'id' | 'email' | 'created_at' | 'updated_at'>) => Promise<{ error: any }>
+  loadProfile: () => Promise<{ data: Profile | null; error: any }>
+
+  // Plans
+  savePlan: (nutritionPlan: any, workoutPlan: any, aiModel: string) => Promise<{ data: Plan | null; error: any }>
+  loadLatestPlan: () => Promise<{ data: Plan | null; error: any }>
+
+  // Reports
+  saveReport: (report: Omit<Report, 'id' | 'user_id' | 'created_at'>) => Promise<{ data: Report | null; error: any }>
+  loadReports: (limit?: number) => Promise<{ data: Report[]; error: any }>
+  loadTodayReport: () => Promise<{ data: Report | null; error: any }>
+
+  // Adaptation
+  adaptProtocol: () => Promise<{ data: any | null; error: any }>
+}
+
+const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined)
+
+export function DatabaseProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+
+  // 笊絶武笊・Profile 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊・
+
+  const saveProfile = async (profile: Omit<Profile, 'id' | 'email' | 'created_at' | 'updated_at'>) => {
+    if (!user) return { error: 'Not authenticated' }
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        ...profile,
+        updated_at: new Date().toISOString(),
+      })
+
+    return { error }
+  }
+
+  const loadProfile = async () => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    return { data: data as Profile | null, error }
+  }
+
+  // 笊絶武笊・Plans 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+
+  const savePlan = async (nutritionPlan: any, workoutPlan: any, aiModel: string) => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('plans')
+      .insert({
+        user_id: user.id,
+        nutrition_plan: nutritionPlan,
+        workout_plan: workoutPlan,
+        ai_model: aiModel,
+      })
+      .select()
+      .single()
+
+    return { data: data as Plan | null, error }
+  }
+
+  const loadLatestPlan = async () => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    return { data: data as Plan | null, error }
+  }
+
+  // 笊絶武笊・Reports 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+
+  const saveReport = async (report: Omit<Report, 'id' | 'user_id' | 'created_at'>) => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('reports')
+      .upsert({
+        user_id: user.id,
+        ...report,
+      })
+      .select()
+      .single()
+
+    return { data: data as Report | null, error }
+  }
+
+  const loadReports = async (limit = 30) => {
+    if (!user) return { data: [], error: 'Not authenticated' }
+
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: false })
+      .limit(limit)
+
+    return { data: (data as Report[]) ?? [], error }
+  }
+
+  const loadTodayReport = async () => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('date', today)
+      .single()
+
+    return { data: data as Report | null, error }
+  }
+
+  // 笊絶武笊・Adaptation 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊・
+
+  const adaptProtocol = async () => {
+    if (!user) return { data: null, error: 'Not authenticated' }
+
+    try {
+      // Busca perfil, plano atual e ﾃｺltimos 14 relatﾃｳrios em paralelo
+      const [profileResult, planResult, reportsResult] = await Promise.all([
+        loadProfile(),
+        loadLatestPlan(),
+        loadReports(14),
+      ])
+
+      if (!profileResult.data) return { data: null, error: 'Perfil nﾃ｣o encontrado' }
+      if (!planResult.data) return { data: null, error: 'Plano nﾃ｣o encontrado' }
+      if (reportsResult.data.length < 3) return { data: null, error: 'Precisa de pelo menos 3 relatﾃｳrios para adaptar o protocolo' }
+
+      const profile = profileResult.data
+      const plan = planResult.data
+
+      // Monta o payload para o AI service
+      const adaptationInput = {
+        user_profile: {
+          goal: profile.goal,
+          fitness_level: profile.fitness_level,
+          weekly_days: profile.weekly_days,
+          current_weight_kg: profile.current_weight_kg,
+          height_cm: profile.height_cm,
+          age: profile.age,
+          gender: profile.gender,
+        },
+        current_plan: {
+          nutrition: plan.nutrition_plan,
+          workout: plan.workout_plan,
+        },
+        reports: reportsResult.data.map(r => ({
+  user_profile: {
+    goal: profile.goal,
+    fitness_level: profile.fitness_level,
+    weekly_days: profile.weekly_days,
+  },
+  date: r.date,
+  workout_completed: r.workout_completed,
+  energy_level: r.energy_level,
+  ...(r.sleep_hours != null && { sleep_hours: r.sleep_hours }),
+  mood: r.mood,
+  ...(r.weight_kg != null && { weight_kg: r.weight_kg }),
+  ...(r.water_ml != null && { water_ml: r.water_ml }),
+  adherence_percent: r.adherence_percent,
+  meals_logged: [],
+})),
+        weeks_on_plan: Math.ceil(reportsResult.data.length / 7),
+      }
+
+ // Chama o AI service
+const response = await fetch(`${AI_SERVICE_URL}/protocol/adapt`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+  },
+  body: JSON.stringify(adaptationInput),
+})
+
+console.log('ADAPT STATUS:', response.status)
+const result = await response.json()
+console.log('ADAPT RESULT:', JSON.stringify(result))
+
+if (!result.data) return { data: null, error: 'Erro na resposta da IA' }
+
+return { 
+  data: { adaptation: result.data, plan: plan }, 
+  error: null 
+}
+
+    } catch (e) {
+      return { data: null, error: 'Erro ao conectar com o serviﾃｧo de IA' }
+    }
+  }
+
+  return (
+    <DatabaseContext.Provider value={{
+      saveProfile,
+      loadProfile,
+      savePlan,
+      loadLatestPlan,
+      saveReport,
+      loadReports,
+      loadTodayReport,
+      adaptProtocol,
+    }}>
+      {children}
+    </DatabaseContext.Provider>
+  )
+}
+
+export function useDatabase() {
+  const context = useContext(DatabaseContext)
+  if (!context) throw new Error('useDatabase deve ser usado dentro de DatabaseProvider')
+  return context
+}
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\i18n\index.ts ===
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import { getLocales } from 'expo-localization'
+
+import en from './locales/en.json'
+import pt from './locales/pt.json'
+import es from './locales/es.json'
+import ja from './locales/ja.json'
+
+const deviceLanguage = getLocales()[0]?.languageCode ?? 'en'
+
+const supportedLanguages = ['en', 'pt', 'es', 'ja']
+const lng = supportedLanguages.includes(deviceLanguage) ? deviceLanguage : 'en'
+
+i18n
+  .use(initReactI18next)
+  .init({
+    resources: {
+      en: { translation: en },
+      pt: { translation: pt },
+      es: { translation: es },
+      ja: { translation: ja },
+    },
+    lng,
+    fallbackLng: 'en',
+    interpolation: { escapeValue: false },
+  })
+
+export default i18n
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\lib\supabase.ts ===
+import 'react-native-url-polyfill/auto'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY')
+}
+
+// Tipos do banco de dados
+export type Profile = {
+  id: string
+  email: string | null
+  goal: string
+  fitness_level: string
+  weekly_days: number
+  age: number | null
+  gender: string | null
+  height_cm: number | null
+  current_weight_kg: number | null
+  target_weight_kg: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type Plan = {
+  id: string
+  user_id: string
+  nutrition_plan: any
+  workout_plan: any
+  ai_model: string | null
+  created_at: string
+}
+
+export type Report = {
+  id: string
+  user_id: string
+  date: string
+  workout_completed: boolean
+  workout_notes: string | null
+  energy_level: number
+  sleep_hours: number | null
+  mood: string | null
+  weight_kg: number | null
+  water_ml: number | null
+  adherence_percent: number
+  analysis: any
+  feedback: any
+  created_at: string
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    flowType: 'pkce',
+  },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\HomeScreen.tsx ===
+// Home dashboard 窶・exibe resumo do perfil e stats reais do dia via Supabase
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { RootStackParamList } from '../../App'
+import { useAuth } from '../context/AuthContext'
+import { useDatabase } from '../context/DatabaseContext'
+import { Report } from '../lib/supabase'
+
+type Route = RouteProp<RootStackParamList, 'Home'>
+
+const ALERT_COLORS: Record<string, string> = {
+  green: '#00FF88',
+  yellow: '#F59E0B',
+  red: '#F87171',
+}
+
+export default function HomeScreen() {
+  const navigation = useNavigation<any>()
+  const route = useRoute<Route>()
+  const { signOut, user } = useAuth()
+  const { loadTodayReport, loadLatestPlan, adaptProtocol } = useDatabase()
+  const { t } = useTranslation()
+  const profile = route.params?.profile
+
+  const [todayReport, setTodayReport] = useState<Report | null>(null)
+  const [hasPlan, setHasPlan] = useState(false)
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [adapting, setAdapting] = useState(false)
+  const [adaptationResult, setAdaptationResult] = useState<any>(null)
+  const [showAdaptModal, setShowAdaptModal] = useState(false)
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      setLoadingStats(true)
+      const [reportResult, planResult] = await Promise.all([
+        loadTodayReport(),
+        loadLatestPlan(),
+      ])
+      setTodayReport(reportResult.data)
+      setHasPlan(!!planResult.data)
+      setLoadingStats(false)
+    }
+    fetchDashboardData()
+  }, [])
+
+  const analysisData = todayReport?.analysis?.analise_diaria !== undefined
+    ? todayReport?.analysis?.analise_diaria
+    : todayReport?.analysis
+  const score = analysisData?.overall_score ?? analysisData?.pontuacao_geral
+  const rawAlertLevel = analysisData?.alert_level ?? analysisData?.nivel_alerta
+  const alertLevel = rawAlertLevel === 'verde' ? 'green'
+    : rawAlertLevel === 'amarelo' ? 'yellow'
+    : rawAlertLevel === 'vermelho' ? 'red'
+    : rawAlertLevel ?? 'green'
+  const scoreColor = ALERT_COLORS[alertLevel] ?? '#00FF88'
+  const motivationalMessage = analysisData?.motivational_message ?? analysisData?.mensagem_motivacional ?? ''
+
+  async function handleAdaptProtocol() {
+    setAdapting(true)
+    const { data, error } = await adaptProtocol()
+    setAdapting(false)
+
+    if (error) {
+      Alert.alert(t('home.adaptError'), typeof error === 'string' ? error : t('common.retry'))
+      return
+    }
+
+    setAdaptationResult(data?.adaptation)
+    setShowAdaptModal(true)
+  }
+
+  return (
+    <SafeAreaView style={s.container}>
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Header */}
+        <View style={s.header}>
+          <View>
+            <Text style={s.greeting}>{t('home.greeting')}</Text>
+            <Text style={s.email}>{user?.email}</Text>
+          </View>
+          <TouchableOpacity style={s.signOutBtn} onPress={signOut}>
+            <Text style={s.signOutText}>{t('home.signOut')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Score do dia */}
+        {todayReport && score !== undefined && score !== null && (
+          <View style={[s.scoreCard, { borderColor: scoreColor }]}>
+            <View style={s.scoreLeft}>
+              <Text style={s.scoreLabel}>{t('home.scoreLabel')}</Text>
+              <Text style={[s.scoreValue, { color: scoreColor }]}>{score}/100</Text>
+              <Text style={s.scoreMessage} numberOfLines={2}>{motivationalMessage}</Text>
+            </View>
+            <Text style={s.scoreEmoji}>
+              {alertLevel === 'green' ? '醇' : alertLevel === 'yellow' ? '笞｡' : '笞・・}
+            </Text>
+          </View>
+        )}
+
+        {/* Card do perfil */}
+        <View style={s.profileCard}>
+          <Text style={s.profileTitle}>{t('home.profileTitle')}</Text>
+          <View style={s.profileGrid}>
+            <View style={s.profileItem}>
+              <Text style={s.profileLabel}>{t('home.profileGoal')}</Text>
+              <Text style={s.profileValue}>
+                {profile?.goal ? t(`goals.${profile.goal}`, { defaultValue: profile.goal }) : '窶・}
+              </Text>
+            </View>
+            <View style={s.profileItem}>
+              <Text style={s.profileLabel}>{t('home.profileLevel')}</Text>
+              <Text style={s.profileValue}>
+                {profile?.fitness_level ? t(`levels.${profile.fitness_level}`, { defaultValue: profile.fitness_level }) : '窶・}
+              </Text>
+            </View>
+            <View style={s.profileItem}>
+              <Text style={s.profileLabel}>{t('home.profileWeight')}</Text>
+              <Text style={s.profileValue}>{profile?.current_weight_kg ? `${profile.current_weight_kg}kg` : '窶・}</Text>
+            </View>
+            <View style={s.profileItem}>
+              <Text style={s.profileLabel}>{t('home.profileDays')}</Text>
+              <Text style={s.profileValue}>{profile?.weekly_days ?? '窶・}x</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* CTA principal */}
+        <TouchableOpacity
+          style={s.ctaPrimary}
+          onPress={() => navigation.navigate('Plan', { profile })}
+        >
+          <Text style={s.ctaPrimaryEmoji}>､・/Text>
+          <View style={s.ctaTextWrap}>
+            <Text style={s.ctaPrimaryTitle}>
+              {hasPlan ? t('home.ctaPlanTitle_existing') : t('home.ctaPlanTitle_new')}
+            </Text>
+            <Text style={s.ctaPrimarySubtitle}>
+              {hasPlan ? t('home.ctaPlanSubtitle_existing') : t('home.ctaPlanSubtitle_new')}
+            </Text>
+          </View>
+          <Text style={s.ctaArrow}>竊・/Text>
+        </TouchableOpacity>
+
+        {/* CTA secundﾃ｡rio */}
+        <TouchableOpacity
+          style={[s.ctaSecondary, todayReport && s.ctaSecondaryDone]}
+          onPress={() => navigation.navigate('Report', { profile })}
+        >
+          <Text style={s.ctaSecondaryEmoji}>{todayReport ? '笨・ : '搭'}</Text>
+          <View style={s.ctaTextWrap}>
+            <Text style={s.ctaSecondaryTitle}>
+              {todayReport ? t('home.ctaReportTitle_done') : t('home.ctaReportTitle_pending')}
+            </Text>
+            <Text style={s.ctaSecondarySubtitle}>
+              {todayReport ? t('home.ctaReportSubtitle_done') : t('home.ctaReportSubtitle_pending')}
+            </Text>
+          </View>
+          <Text style={s.ctaArrowDark}>竊・/Text>
+        </TouchableOpacity>
+
+        {/* Botﾃ｣o adaptar protocolo */}
+        {hasPlan && (
+          <TouchableOpacity
+            style={[s.adaptBtn, adapting && s.adaptBtnDisabled]}
+            onPress={handleAdaptProtocol}
+            disabled={adapting}
+          >
+            {adapting ? (
+              <View style={s.adaptBtnInner}>
+                <ActivityIndicator color="#A78BFA" size="small" />
+                <Text style={s.adaptBtnText}>{t('home.adaptingBtn')}</Text>
+              </View>
+            ) : (
+              <View style={s.adaptBtnInner}>
+                <Text style={s.adaptBtnEmoji}>売</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.adaptBtnText}>{t('home.adaptBtn')}</Text>
+                  <Text style={s.adaptBtnSub}>{t('home.adaptBtnSub')}</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Stats do dia */}
+        <Text style={s.sectionTitle}>{t('home.sectionSummary')}</Text>
+
+        {loadingStats ? (
+          <View style={s.statsLoading}>
+            <ActivityIndicator color="#00FF88" size="small" />
+          </View>
+        ) : (
+          <View style={s.statsGrid}>
+            <View style={s.statCard}>
+              <Text style={s.statEmoji}>笞｡</Text>
+              <Text style={[s.statValue, todayReport && { color: '#00FF88' }]}>
+                {todayReport ? `${todayReport.energy_level}/5` : '窶・}
+              </Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.energy')}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statEmoji}>挑</Text>
+              <Text style={[s.statValue, todayReport?.water_ml != null && { color: '#60A5FA' }]}>
+                {todayReport?.water_ml ? `${(todayReport.water_ml / 1000).toFixed(1)}L` : '窶・}
+              </Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.water')}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statEmoji}>亢</Text>
+              <Text style={[s.statValue, todayReport?.sleep_hours != null && { color: '#A78BFA' }]}>
+                {todayReport?.sleep_hours ? `${todayReport.sleep_hours}h` : '窶・}
+              </Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.sleep')}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statEmoji}>潮</Text>
+              <Text style={[s.statValue, { color: todayReport?.workout_completed ? '#00FF88' : '#F87171' }]}>
+                {todayReport ? (todayReport.workout_completed ? t('home.stats.workoutYes') : t('home.stats.workoutNo')) : '窶・}
+              </Text>
+              <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit>{t('home.stats.workout')}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Peso do dia */}
+        {todayReport?.weight_kg && (
+          <View style={s.weightCard}>
+            <Text style={s.weightLabel}>{t('home.stats.weightToday')}</Text>
+            <Text style={s.weightValue}>{todayReport.weight_kg} kg</Text>
+          </View>
+        )}
+
+        {/* Aderﾃｪncia do dia */}
+        {todayReport && (
+          <View style={s.adherenceCard}>
+            <View style={s.adherenceHeader}>
+              <Text style={s.adherenceLabel}>{t('home.stats.adherence')}</Text>
+              <Text style={[s.adherencePercent, { color: scoreColor }]}>
+                {todayReport.adherence_percent}%
+              </Text>
+            </View>
+            <View style={s.adherenceBar}>
+              <View style={[s.adherenceFill, {
+                width: `${todayReport.adherence_percent}%` as any,
+                backgroundColor: scoreColor,
+              }]} />
+            </View>
+          </View>
+        )}
+
+        {/* Botﾃ｣o de progresso */}
+        <TouchableOpacity
+          style={s.progressBtn}
+          onPress={() => navigation.navigate('Progress', { profile })}
+        >
+          <Text style={s.progressBtnText}>{t('home.progressBtn')}</Text>
+        </TouchableOpacity>
+
+        {/* Atualizar perfil */}
+        <TouchableOpacity
+          style={s.editProfileBtn}
+          onPress={() => navigation.navigate('Onboarding')}
+        >
+          <Text style={s.editProfileText}>{t('home.editProfileBtn')}</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+
+      {/* Modal de resultado da adaptaﾃｧﾃ｣o */}
+      <Modal
+        visible={showAdaptModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAdaptModal(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={s.modalTitle}>{t('home.modal.title')}</Text>
+
+              {adaptationResult && (
+                <>
+                  <View style={s.modalSection}>
+                    <Text style={s.modalLabel}>{t('home.modal.reasonLabel')}</Text>
+                    <Text style={s.modalText}>
+                      {adaptationResult.adaptation_reason ?? adaptationResult.motivo_adaptacao ?? '窶・}
+                    </Text>
+                  </View>
+
+                  {(adaptationResult.changes ?? adaptationResult.mudancas)?.length > 0 && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>{t('home.modal.changesLabel')}</Text>
+                      {(adaptationResult.changes ?? adaptationResult.mudancas).map((c: string, i: number) => (
+                        <Text key={i} style={s.modalItem}>窶｢ {c}</Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {(adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico) && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>{t('home.modal.calorieLabel')}</Text>
+                      <Text style={[s.modalText, { color: '#00FF88', fontSize: 20, fontWeight: '800' }]}>
+                        {adaptationResult.new_calorie_target ?? adaptationResult.novo_alvo_calorico} kcal
+                      </Text>
+                    </View>
+                  )}
+
+                  {(adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao) && (
+                    <View style={s.modalSection}>
+                      <Text style={s.modalLabel}>{t('home.modal.recoveryLabel')}</Text>
+                      <Text style={s.modalText}>
+                        {adaptationResult.recovery_recommendation ?? adaptationResult.recomendacao_recuperacao}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={[s.modalSection, s.modalClosingCard]}>
+                    <Text style={s.modalClosing}>
+                      {adaptationResult.coach_message ?? adaptationResult.mensagem_coach ?? ''}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              <TouchableOpacity
+                style={s.modalBtn}
+                onPress={() => {
+                  setShowAdaptModal(false)
+                  navigation.navigate('Plan', { profile })
+                }}
+              >
+                <Text style={s.modalBtnText}>{t('home.modal.viewPlan')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.modalBtnSecondary}
+                onPress={() => setShowAdaptModal(false)}
+              >
+                <Text style={s.modalBtnSecondaryText}>{t('common.close')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  scroll: { flex: 1, padding: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  greeting: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
+  email: { fontSize: 13, color: '#555', marginTop: 2 },
+  signOutBtn: { backgroundColor: '#1A1A2E', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  signOutText: { color: '#A0A0B0', fontWeight: '600', fontSize: 13 },
+  scoreCard: { borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 2, backgroundColor: '#13131A', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  scoreLeft: { flex: 1, gap: 4 },
+  scoreLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1 },
+  scoreValue: { fontSize: 36, fontWeight: '800' },
+  scoreMessage: { fontSize: 13, color: '#A0A0B0', lineHeight: 18, marginTop: 4 },
+  scoreEmoji: { fontSize: 40 },
+  profileCard: { backgroundColor: '#13131A', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#1E1E2E' },
+  profileTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
+  profileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  profileItem: { width: '47%', gap: 4 },
+  profileLabel: { fontSize: 12, color: '#555' },
+  profileValue: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  ctaPrimary: { backgroundColor: '#00FF88', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 16 },
+  ctaPrimaryEmoji: { fontSize: 32 },
+  ctaTextWrap: { flex: 1 },
+  ctaPrimaryTitle: { fontSize: 17, fontWeight: '800', color: '#000' },
+  ctaPrimarySubtitle: { fontSize: 13, color: '#005533', marginTop: 2 },
+  ctaArrow: { fontSize: 20, color: '#000', fontWeight: '800' },
+  ctaSecondary: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 16, borderWidth: 1, borderColor: '#2A2A3E' },
+  ctaSecondaryDone: { borderColor: '#00FF88', backgroundColor: '#0D2E1A' },
+  ctaSecondaryEmoji: { fontSize: 32 },
+  ctaSecondaryTitle: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
+  ctaSecondarySubtitle: { fontSize: 13, color: '#555', marginTop: 2 },
+  ctaArrowDark: { fontSize: 20, color: '#555', fontWeight: '800' },
+  adaptBtn: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, marginBottom: 24, borderWidth: 1, borderColor: '#A78BFA' },
+  adaptBtnDisabled: { opacity: 0.6 },
+  adaptBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  adaptBtnEmoji: { fontSize: 32 },
+  adaptBtnText: { fontSize: 16, fontWeight: '700', color: '#A78BFA' },
+  adaptBtnSub: { fontSize: 12, color: '#555', marginTop: 2, flexShrink: 1 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  statsLoading: { height: 90, justifyContent: 'center', alignItems: 'center' },
+  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 8, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#1E1E2E' },
+  statEmoji: { fontSize: 16 },
+  statValue: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 9, color: '#555', textAlign: 'center' },
+  weightCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#1E1E2E', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  weightLabel: { fontSize: 14, color: '#A0A0B0', fontWeight: '600' },
+  weightValue: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  adherenceCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1E1E2E', gap: 10 },
+  adherenceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  adherenceLabel: { fontSize: 14, color: '#A0A0B0', fontWeight: '600' },
+  adherencePercent: { fontSize: 18, fontWeight: '800' },
+  adherenceBar: { height: 6, backgroundColor: '#1E1E2E', borderRadius: 3, overflow: 'hidden' },
+  adherenceFill: { height: 6, borderRadius: 3 },
+  progressBtn: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#2A2A3E', marginBottom: 12 },
+  progressBtnText: { color: '#00FF88', fontWeight: '700', fontSize: 15 },
+  editProfileBtn: { backgroundColor: '#13131A', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E2E' },
+  editProfileText: { color: '#A0A0B0', fontWeight: '600', fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#13131A', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', marginBottom: 24, textAlign: 'center' },
+  modalSection: { marginBottom: 16 },
+  modalLabel: { fontSize: 12, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  modalText: { fontSize: 15, color: '#A0A0B0', lineHeight: 22 },
+  modalItem: { fontSize: 14, color: '#A0A0B0', lineHeight: 24 },
+  modalClosingCard: { backgroundColor: '#0D2E1A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#00FF88' },
+  modalClosing: { fontSize: 15, color: '#00FF88', textAlign: 'center', fontWeight: '600', lineHeight: 24 },
+  modalBtn: { backgroundColor: '#00FF88', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8, marginBottom: 8 },
+  modalBtnText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  modalBtnSecondary: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 8 },
+  modalBtnSecondaryText: { color: '#A0A0B0', fontWeight: '600', fontSize: 15 },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\LoginScreen.tsx ===
+import React, { useState } from 'react'
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert
+} from 'react-native'
+import { useTranslation } from 'react-i18next'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { RootStackParamList } from '../../App'
+import { useAuth } from '../context/AuthContext'
+
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>
+}
+
+export default function LoginScreen({ navigation }: Props) {
+  const { signIn } = useAuth()
+  const { t } = useTranslation()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert(t('common.error'), t('auth.fillEmailPassword'))
+      return
+    }
+
+    setLoading(true)
+    const { error } = await signIn(email, password)
+    setLoading(false)
+
+    if (error) {
+      // Mensagem genﾃｩrica 窶・nﾃ｣o revela se email existe ou nﾃ｣o (seguranﾃｧa)
+      Alert.alert(t('auth.loginError'), t('auth.invalidCredentials'))
+    }
+    // Se sucesso: AuthContext atualiza session 竊・App.tsx redireciona automaticamente
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.inner}>
+        <Text style={styles.logo}>BodyOS</Text>
+        <Text style={styles.subtitle}>{t('auth.subtitle')}</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder={t('auth.email')}
+          placeholderTextColor="#555"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder={t('auth.password')}
+          placeholderTextColor="#555"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading
+            ? <ActivityIndicator color="#000" />
+            : <Text style={styles.buttonText}>{t('auth.login')}</Text>
+          }
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <Text style={styles.link}>
+            {t('auth.noAccount')} <Text style={styles.linkBold}>{t('auth.register')}</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  logo: { fontSize: 42, fontWeight: '800', color: '#00FF88', textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 48 },
+  input: {
+    backgroundColor: '#13131A',
+    borderWidth: 1,
+    borderColor: '#1E1E2E',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#FFF',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#00FF88',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  link: { color: '#666', textAlign: 'center', fontSize: 14 },
+  linkBold: { color: '#00FF88', fontWeight: '600' },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\OnboardingScreen.tsx ===
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { useState } from 'react'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
+
+const STEPS = [
+  { id: 'welcome' },
+  { id: 'goal' },
+  { id: 'level' },
+  { id: 'body' },
+  { id: 'schedule' },
+]
+
+const GOALS = [
+  { id: 'muscle_gain', label: 'Ganhar Massa', emoji: '潮', desc: 'Aumentar mﾃｺsculo e forﾃｧa' },
+  { id: 'fat_loss', label: 'Perder Gordura', emoji: '櫨', desc: 'Definiﾃｧﾃ｣o e emagrecimento' },
+  { id: 'maintenance', label: 'Manter Forma', emoji: '笞厄ｸ・, desc: 'Saﾃｺde e bem-estar geral' },
+  { id: 'performance', label: 'Performance', emoji: '醇', desc: 'Melhorar rendimento esportivo' },
+]
+
+const LEVELS = [
+  { id: 'beginner', label: 'Iniciante', emoji: '験', desc: 'Menos de 1 ano de treino' },
+  { id: 'intermediate', label: 'Intermediﾃ｡rio', emoji: '笞｡', desc: '1 a 3 anos de treino' },
+  { id: 'advanced', label: 'Avanﾃｧado', emoji: '櫨', desc: 'Mais de 3 anos de treino' },
+]
+
+const DAYS = [3, 4, 5, 6]
+
+export default function OnboardingScreen() {
+  const navigation = useNavigation<Nav>()
+  const { saveProfile } = useDatabase()
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    goal: '',
+    fitness_level: '',
+    weekly_days: 4,
+    age: '',
+    gender: '',
+    current_weight_kg: '',
+    target_weight_kg: '',
+    height_cm: '',
+  })
+
+  async function next() {
+    if (step < STEPS.length - 1) {
+      setStep(s => s + 1)
+    } else {
+      setSaving(true)
+      await saveProfile({
+        goal: form.goal,
+        fitness_level: form.fitness_level,
+        weekly_days: form.weekly_days,
+        age: form.age ? Number(form.age) : null,
+        gender: form.gender || null,
+        height_cm: form.height_cm ? Number(form.height_cm) : null,
+        current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
+        target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
+      })
+      setSaving(false)
+      navigation.navigate('Home', { profile: form } as any)
+    }
+  }
+
+  function back() {
+    if (step > 0) setStep(s => s - 1)
+  }
+
+  const canNext = () => {
+    if (step === 1) return !!form.goal
+    if (step === 2) return !!form.fitness_level
+    if (step === 3) return !!form.age && !!form.current_weight_kg && !!form.height_cm
+    return true
+  }
+
+  const progress = (step / (STEPS.length - 1)) * 100
+
+  return (
+    <SafeAreaView style={s.container}>
+      {step > 0 && (
+        <View style={s.progressWrap}>
+          <View style={s.progressBg}>
+            <View style={[s.progressFill, { width: `${progress}%` }]} />
+          </View>
+          <Text style={s.progressText}>{step}/{STEPS.length - 1}</Text>
+        </View>
+      )}
+
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+
+        {/* Step 0 窶・Welcome */}
+        {step === 0 && (
+          <View style={s.centerContent}>
+            <Text style={s.logo}>BodyOS</Text>
+            <Text style={s.tagline}>Seu protocolo completo{'\n'}gerado por IA</Text>
+            <View style={s.features}>
+              {[
+                { emoji: '暑・・, text: 'Treinos adaptados ao seu corpo' },
+                { emoji: '･・, text: 'Dieta personalizada por IA' },
+                { emoji: '投', text: 'Relatﾃｳrios e feedback diﾃ｡rio' },
+                { emoji: '売', text: 'Protocolo que evolui com vocﾃｪ' },
+              ].map((f, i) => (
+                <View key={i} style={s.featureRow}>
+                  <Text style={s.featureEmoji}>{f.emoji}</Text>
+                  <Text style={s.featureText}>{f.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Step 1 窶・Goal */}
+        {step === 1 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>Qual ﾃｩ o seu objetivo?</Text>
+            <Text style={s.stepSubtitle}>A IA vai criar seu protocolo baseado nessa escolha</Text>
+            <View style={s.optionsGrid}>
+              {GOALS.map(g => (
+                <TouchableOpacity
+                  key={g.id}
+                  style={[s.optionCard, form.goal === g.id && s.optionCardActive]}
+                  onPress={() => setForm(f => ({ ...f, goal: g.id }))}
+                >
+                  <Text style={s.optionEmoji}>{g.emoji}</Text>
+                  <Text style={[s.optionLabel, form.goal === g.id && s.optionLabelActive]}>{g.label}</Text>
+                  <Text style={s.optionDesc}>{g.desc}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Step 2 窶・Level */}
+        {step === 2 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>Seu nﾃｭvel de experiﾃｪncia</Text>
+            <Text style={s.stepSubtitle}>Isso define o volume e intensidade do treino</Text>
+            <View style={s.optionsList}>
+              {LEVELS.map(l => (
+                <TouchableOpacity
+                  key={l.id}
+                  style={[s.levelCard, form.fitness_level === l.id && s.optionCardActive]}
+                  onPress={() => setForm(f => ({ ...f, fitness_level: l.id }))}
+                >
+                  <Text style={s.optionEmoji}>{l.emoji}</Text>
+                  <View style={s.levelInfo}>
+                    <Text style={[s.optionLabel, form.fitness_level === l.id && s.optionLabelActive]}>{l.label}</Text>
+                    <Text style={s.optionDesc}>{l.desc}</Text>
+                  </View>
+                  {form.fitness_level === l.id && <Text style={s.check}>笨・/Text>}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Step 3 窶・Body data */}
+        {step === 3 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>Seus dados corporais</Text>
+            <Text style={s.stepSubtitle}>Usados para calcular suas calorias e macros ideais</Text>
+            <View style={s.genderRow}>
+              {['Masculino', 'Feminino'].map(g => (
+                <TouchableOpacity
+                  key={g}
+                  style={[s.genderBtn, form.gender === g && s.genderBtnActive]}
+                  onPress={() => setForm(f => ({ ...f, gender: g }))}
+                >
+                  <Text style={[s.genderText, form.gender === g && s.genderTextActive]}>
+                    {g === 'Masculino' ? '笙ゑｸ・' : '笙・・'}{g}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {[
+              { label: 'Idade', key: 'age', placeholder: 'ex: 28', unit: 'anos' },
+              { label: 'Altura', key: 'height_cm', placeholder: 'ex: 178', unit: 'cm' },
+              { label: 'Peso atual', key: 'current_weight_kg', placeholder: 'ex: 80', unit: 'kg' },
+              { label: 'Peso alvo', key: 'target_weight_kg', placeholder: 'ex: 75', unit: 'kg' },
+            ].map(field => (
+              <View key={field.key} style={s.inputWrap}>
+                <Text style={s.inputLabel}>{field.label}</Text>
+                <View style={s.inputRow}>
+                  <TextInput
+                    style={s.input}
+                    placeholder={field.placeholder}
+                    placeholderTextColor="#555"
+                    keyboardType="numeric"
+                    value={(form as any)[field.key]}
+                    onChangeText={v => setForm(f => ({ ...f, [field.key]: v }))}
+                  />
+                  <Text style={s.inputUnit}>{field.unit}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Step 4 窶・Schedule */}
+        {step === 4 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>Quantos dias por semana?</Text>
+            <Text style={s.stepSubtitle}>A IA vai distribuir os treinos nos dias ideais</Text>
+            <View style={s.daysRow}>
+              {DAYS.map(d => (
+                <TouchableOpacity
+                  key={d}
+                  style={[s.dayBtn, form.weekly_days === d && s.dayBtnActive]}
+                  onPress={() => setForm(f => ({ ...f, weekly_days: d }))}
+                >
+                  <Text style={[s.dayBtnNum, form.weekly_days === d && s.dayBtnNumActive]}>{d}</Text>
+                  <Text style={s.dayBtnLabel}>dias</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={s.summaryCard}>
+              <Text style={s.summaryTitle}>搭 Resumo do seu perfil</Text>
+              {[
+                { label: 'Objetivo', value: GOALS.find(g => g.id === form.goal)?.label },
+                { label: 'Nﾃｭvel', value: LEVELS.find(l => l.id === form.fitness_level)?.label },
+                { label: 'Dias de treino', value: `${form.weekly_days}x por semana` },
+                { label: 'Peso atual', value: form.current_weight_kg ? `${form.current_weight_kg}kg` : '-' },
+                { label: 'Altura', value: form.height_cm ? `${form.height_cm}cm` : '-' },
+              ].map((item, i) => (
+                <View key={i} style={s.summaryRow}>
+                  <Text style={s.summaryLabel}>{item.label}</Text>
+                  <Text style={s.summaryValue}>{item.value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+      </ScrollView>
+
+      <View style={s.footer}>
+        {step > 0 && (
+          <TouchableOpacity style={s.btnBack} onPress={back} disabled={saving}>
+            <Text style={s.btnBackText}>竊・Voltar</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[s.btnNext, (!canNext() || saving) && s.btnNextDisabled, step === 0 && s.btnNextFull]}
+          onPress={next}
+          disabled={!canNext() || saving}
+        >
+          {saving
+            ? <ActivityIndicator color="#0A0A0F" />
+            : <Text style={s.btnNextText}>
+                {step === 0 ? 'Comeﾃｧar agora' : step === STEPS.length - 1 ? '噫 Gerar meu protocolo' : 'Continuar 竊・}
+              </Text>
+          }
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  progressWrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 8, gap: 12 },
+  progressBg: { flex: 1, height: 4, backgroundColor: '#1A1A2E', borderRadius: 2 },
+  progressFill: { height: 4, backgroundColor: '#00FF87', borderRadius: 2 },
+  progressText: { color: '#A0A0B0', fontSize: 12 },
+  scroll: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  centerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  logo: { fontSize: 52, fontWeight: '800', color: '#00FF87', letterSpacing: -1, marginBottom: 12 },
+  tagline: { fontSize: 24, color: '#FFFFFF', textAlign: 'center', lineHeight: 34, marginBottom: 48, fontWeight: '600' },
+  features: { width: '100%', gap: 14 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2E', padding: 16, borderRadius: 14, gap: 14 },
+  featureEmoji: { fontSize: 24 },
+  featureText: { fontSize: 15, color: '#E0E0E0', fontWeight: '500' },
+  stepContent: { padding: 24, gap: 20 },
+  stepTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', lineHeight: 34 },
+  stepSubtitle: { fontSize: 15, color: '#A0A0B0', lineHeight: 22, marginTop: -8 },
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  optionCard: { width: '47%', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, alignItems: 'center', gap: 6, borderWidth: 2, borderColor: 'transparent' },
+  optionCardActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  optionEmoji: { fontSize: 32 },
+  optionLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  optionLabelActive: { color: '#00FF87' },
+  optionDesc: { fontSize: 12, color: '#A0A0B0', textAlign: 'center' },
+  optionsList: { gap: 12 },
+  levelCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 14, borderWidth: 2, borderColor: 'transparent' },
+  levelInfo: { flex: 1 },
+  check: { color: '#00FF87', fontSize: 20, fontWeight: '800' },
+  genderRow: { flexDirection: 'row', gap: 12 },
+  genderBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  genderBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  genderText: { color: '#A0A0B0', fontWeight: '600' },
+  genderTextActive: { color: '#00FF87' },
+  inputWrap: { gap: 8 },
+  inputLabel: { color: '#A0A0B0', fontSize: 13, fontWeight: '600' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2E', borderRadius: 12, paddingHorizontal: 16 },
+  input: { flex: 1, color: '#FFFFFF', fontSize: 16, paddingVertical: 14 },
+  inputUnit: { color: '#A0A0B0', fontSize: 14 },
+  daysRow: { flexDirection: 'row', gap: 12, justifyContent: 'center' },
+  dayBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  dayBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  dayBtnNum: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
+  dayBtnNumActive: { color: '#00FF87' },
+  dayBtnLabel: { fontSize: 12, color: '#A0A0B0', marginTop: 4 },
+  summaryCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 20, gap: 12 },
+  summaryTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  summaryLabel: { color: '#A0A0B0', fontSize: 14 },
+  summaryValue: { color: '#00FF87', fontSize: 14, fontWeight: '600' },
+  footer: { flexDirection: 'row', padding: 24, gap: 12 },
+  btnBack: { paddingVertical: 18, paddingHorizontal: 20, borderRadius: 16, backgroundColor: '#1A1A2E', alignItems: 'center' },
+  btnBackText: { color: '#A0A0B0', fontSize: 15, fontWeight: '600' },
+  btnNext: { flex: 1, backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  btnNextFull: { flex: 1 },
+  btnNextDisabled: { backgroundColor: '#1A1A2E' },
+  btnNextText: { color: '#0A0A0F', fontSize: 16, fontWeight: '700' },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\PlanScreen.tsx ===
+// Tela de plano gerado pela IA 窶・exibe dieta, treino e hidrataﾃｧﾃ｣o mﾃｭnima
+// Tabs separadas para nutriﾃｧﾃ｣o e treino evitam scroll excessivo em tela ﾃｺnica
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
+import { useState, useEffect } from 'react'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
+
+type Nav = any
+type Route = RouteProp<RootStackParamList, 'Plan'>
+
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
+
+const mealIcon: Record<string, string> = {
+  breakfast: '桁',
+  lunch: '笘・・,
+  dinner: '嫌',
+  snack: '克',
+}
+
+const dayName: Record<number, string> = {
+  0: 'Dom', 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sﾃ｡b',
+}
+
+export default function PlanScreen() {
+  const navigation = useNavigation<Nav>()
+  const route = useRoute<Route>()
+  const profile = route.params?.profile
+  const { savePlan, loadLatestPlan } = useDatabase()
+
+  const [loading, setLoading] = useState(false)
+  const [loadingExisting, setLoadingExisting] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [plan, setPlan] = useState<{ nutrition?: any; workout?: any; ai_model?: string } | null>(null)
+  const [tab, setTab] = useState<'nutrition' | 'workout'>('nutrition')
+  const [error, setError] = useState('')
+
+  // Carrega plano existente ao abrir a tela
+  useEffect(() => {
+    async function fetchExistingPlan() {
+      setLoadingExisting(true)
+      const { data } = await loadLatestPlan()
+      if (data && data.nutrition_plan && data.workout_plan) {
+        setPlan({
+          nutrition: data.nutrition_plan,
+          workout: data.workout_plan,
+          ai_model: data.ai_model ?? undefined,
+        })
+      }
+      setLoadingExisting(false)
+    }
+    fetchExistingPlan()
+  }, [])
+
+  async function generatePlan() {
+    setLoading(true)
+    setError('')
+    try {
+      const [nutritionRaw, workoutRaw] = await Promise.all([
+        fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
+          body: JSON.stringify({
+            goal: profile?.goal ?? 'muscle_gain',
+            fitness_level: profile?.fitness_level ?? 'intermediate',
+            weekly_days: profile?.weekly_days ?? 4,
+            current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
+            height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
+            age: profile?.age ? Number(profile.age) : undefined,
+            gender: profile?.gender,
+          }),
+        }).then(r => r.json()),
+        fetch(`${AI_SERVICE_URL}/workout/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
+          body: JSON.stringify({
+            goal: profile?.goal ?? 'muscle_gain',
+            fitness_level: profile?.fitness_level ?? 'intermediate',
+            weekly_days: profile?.weekly_days ?? 4,
+            current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
+            age: profile?.age ? Number(profile.age) : undefined,
+          }),
+        }).then(r => r.json()),
+      ])
+
+      // Log para debug 窶・pode remover apﾃｳs confirmar que estﾃ｡ funcionando
+      console.log('NUTRITION RAW:', JSON.stringify(nutritionRaw, null, 2))
+      console.log('WORKOUT RAW:', JSON.stringify(workoutRaw, null, 2))
+
+      // Suporte a ambos os formatos: { data: {...} } ou objeto direto
+      const nutritionData = nutritionRaw.data ?? nutritionRaw
+      const workoutData = workoutRaw.data ?? workoutRaw
+
+      const newPlan = {
+        nutrition: nutritionData,
+        workout: workoutData,
+        ai_model: nutritionRaw.ai_model ?? 'groq',
+      }
+
+      setPlan(newPlan)
+
+      // Persiste no Supabase
+      setSaving(true)
+      await savePlan(newPlan.nutrition, newPlan.workout, newPlan.ai_model)
+      setSaving(false)
+
+    } catch (e) {
+      console.error('PLAN ERROR:', JSON.stringify(e))
+      setError('Erro ao conectar com o serviﾃｧo de IA.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function formatWater(ml: number): string {
+    return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`
+  }
+
+  return (
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>竊・Voltar</Text>
+        </TouchableOpacity>
+        <Text style={s.title}>Plano com IA</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      {plan && (
+        <View style={s.tabs}>
+          <TouchableOpacity
+            style={[s.tab, tab === 'nutrition' && s.tabActive]}
+            onPress={() => setTab('nutrition')}
+          >
+            <Text style={[s.tabText, tab === 'nutrition' && s.tabTextActive]}>･・Dieta</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.tab, tab === 'workout' && s.tabActive]}
+            onPress={() => setTab('workout')}
+          >
+            <Text style={[s.tabText, tab === 'workout' && s.tabTextActive]}>暑・・Treino</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Carregando plano existente */}
+        {loadingExisting && (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color="#00FF87" />
+            <Text style={s.loadingText}>Carregando seu plano...</Text>
+          </View>
+        )}
+
+        {/* Estado vazio */}
+        {!plan && !loading && !loadingExisting && (
+          <View style={s.empty}>
+            <Text style={s.emptyEmoji}>､・/Text>
+            <Text style={s.emptyTitle}>Gerar seu plano</Text>
+            <Text style={s.emptyText}>A IA vai criar um plano de treino e dieta personalizado para vocﾃｪ</Text>
+          </View>
+        )}
+
+        {/* Gerando plano */}
+        {loading && (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color="#00FF87" />
+            <Text style={s.loadingText}>Gerando seu plano personalizado...</Text>
+          </View>
+        )}
+
+        {/* Salvando */}
+        {saving && (
+          <View style={s.savingBanner}>
+            <ActivityIndicator size="small" color="#00FF87" />
+            <Text style={s.savingText}>Salvando plano...</Text>
+          </View>
+        )}
+
+        {error ? <Text style={s.error}>{error}</Text> : null}
+
+        {/* 笏笏 ABA NUTRIﾃ・グ 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */}
+        {plan && tab === 'nutrition' && (
+          <View style={s.content}>
+            <View style={s.macroRow}>
+              {[
+                { label: 'Calorias', value: plan.nutrition.daily_calories, unit: 'kcal', color: '#00FF87' },
+                { label: 'Proteﾃｭna', value: plan.nutrition.protein_g, unit: 'g', color: '#60A5FA' },
+                { label: 'Carbs', value: plan.nutrition.carbs_g, unit: 'g', color: '#F59E0B' },
+                { label: 'Gordura', value: plan.nutrition.fat_g, unit: 'g', color: '#F87171' },
+              ].map((m, i) => (
+                <View key={i} style={s.macroCard}>
+                  <Text style={[s.macroValue, { color: m.color }]}>{m.value}</Text>
+                  <Text style={s.macroUnit}>{m.unit}</Text>
+                  <Text style={s.macroLabel} numberOfLines={1} adjustsFontSizeToFit>{m.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {plan.nutrition.water_ml && (
+              <View style={s.hydrationCard}>
+                <Text style={s.hydrationEmoji}>挑</Text>
+                <View>
+                  <Text style={s.hydrationTitle}>Hidrataﾃｧﾃ｣o mﾃｭnima diﾃ｡ria</Text>
+                  <Text style={s.hydrationAmount}>
+                    {formatWater(plan.nutrition.water_ml)}
+                    <Text style={s.hydrationSub}> ({plan.nutrition.water_ml}ml)</Text>
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <Text style={s.sectionTitle}>Refeiﾃｧﾃｵes</Text>
+            {plan.nutrition.meals?.map((meal: any, i: number) => (
+              <View key={i} style={s.mealCard}>
+                <View style={s.mealHeader}>
+                  <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '鎖・・}</Text>
+                  <View style={s.mealInfo}>
+                    <Text style={s.mealName}>{meal.name}</Text>
+                    <Text style={s.mealTime}>{meal.time_suggestion} ﾂｷ {meal.total_calories} kcal</Text>
+                  </View>
+                </View>
+                {meal.foods?.map((food: any, j: number) => (
+                  <View key={j} style={s.foodRow}>
+                    <Text style={s.foodName}>{food.name}</Text>
+                    <Text style={s.foodDetail}>{food.quantity_g}g ﾂｷ {food.calories} kcal</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            {plan.nutrition.supplements?.length > 0 && (
+              <>
+                <Text style={s.sectionTitle}>Suplementos</Text>
+                {plan.nutrition.supplements.map((sup: any, i: number) => (
+                  <View key={i} style={s.supRow}>
+                    <Text style={s.supName}>抽 {sup.name}</Text>
+                    <Text style={s.supDetail}>{sup.dose} ﾂｷ {sup.timing}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {plan.nutrition.nutritionist_notes && (
+              <View style={s.notesCard}>
+                <Text style={s.notesTitle}>統 Notas do Nutricionista</Text>
+                <Text style={s.notesText}>{plan.nutrition.nutritionist_notes}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* 笏笏 ABA TREINO 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏 */}
+        {plan && tab === 'workout' && (
+          <View style={s.content}>
+            <View style={s.workoutHeader}>
+              <Text style={s.workoutName}>{plan.workout.name}</Text>
+              <Text style={s.workoutMeta}>{plan.workout.duration_weeks} semanas ﾂｷ {plan.workout.methodology}</Text>
+            </View>
+
+            {plan.workout.sessions?.map((session: any, i: number) => (
+              <View key={i} style={s.sessionCard}>
+                <View style={s.sessionHeader}>
+                  <View style={s.dayBadge}>
+                    <Text style={s.dayText}>{dayName[session.day_of_week]}</Text>
+                  </View>
+                  <View>
+                    <Text style={s.sessionName}>{session.name}</Text>
+                    <Text style={s.sessionMeta}>{session.focus} ﾂｷ {session.estimated_minutes} min</Text>
+                  </View>
+                </View>
+                {session.exercises?.map((ex: any, j: number) => (
+                  <View key={j} style={s.exerciseRow}>
+                    <Text style={s.exerciseName}>{ex.name}</Text>
+                    <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} ﾂｷ {ex.rest_seconds}s descanso</Text>
+                    <Text style={s.exerciseTip}>庁 {ex.technique_tip}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            {plan.workout.trainer_notes && (
+              <View style={s.notesCard}>
+                <Text style={s.notesTitle}>統 Notas do Personal</Text>
+                <Text style={s.notesText}>{plan.workout.trainer_notes}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {!loading && !loadingExisting && (
+        <View style={s.footer}>
+          <TouchableOpacity style={s.btn} onPress={generatePlan}>
+            <Text style={s.btnText}>{plan ? '売 Gerar novo plano' : '笨ｨ Gerar meu plano'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24 },
+  back: { color: '#00FF87', fontSize: 16 },
+  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  tabs: { flexDirection: 'row', marginHorizontal: 24, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 4, marginBottom: 8 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+  tabActive: { backgroundColor: '#00FF87' },
+  tabText: { color: '#A0A0B0', fontWeight: '600' },
+  tabTextActive: { color: '#0A0A0F' },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 24, paddingBottom: 32, gap: 12 },
+  empty: { alignItems: 'center', paddingTop: 80, gap: 16, paddingHorizontal: 32 },
+  emptyEmoji: { fontSize: 64 },
+  emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
+  emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
+  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingText: { color: '#A0A0B0', fontSize: 16 },
+  savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
+  savingText: { color: '#00FF87', fontSize: 13 },
+  error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
+  macroRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 8, alignItems: 'center' },
+  macroValue: { fontSize: 16, fontWeight: '800' },
+  macroUnit: { fontSize: 9, color: '#A0A0B0' },
+  macroLabel: { fontSize: 9, color: '#A0A0B0', marginTop: 2, textAlign: 'center' },
+  hydrationCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#0D1A2E', borderRadius: 14, padding: 16, borderLeftWidth: 3, borderLeftColor: '#60A5FA' },
+  hydrationEmoji: { fontSize: 32 },
+  hydrationTitle: { fontSize: 13, color: '#A0A0B0', marginBottom: 4 },
+  hydrationAmount: { fontSize: 20, fontWeight: '800', color: '#60A5FA' },
+  hydrationSub: { fontSize: 13, color: '#A0A0B0', fontWeight: '400' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginTop: 8 },
+  mealCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 8 },
+  mealHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  mealIcon: { fontSize: 28 },
+  mealInfo: { flex: 1 },
+  mealName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  mealTime: { fontSize: 13, color: '#A0A0B0', marginTop: 2 },
+  foodRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#2A2A3E' },
+  foodName: { fontSize: 13, color: '#E0E0E0', flex: 1, flexWrap: 'wrap' },
+  foodDetail: { fontSize: 13, color: '#A0A0B0' },
+  supRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#1A1A2E', padding: 14, borderRadius: 12 },
+  supName: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
+  supDetail: { fontSize: 13, color: '#A0A0B0' },
+  notesCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, borderLeftWidth: 3, borderLeftColor: '#00FF87' },
+  notesTitle: { fontSize: 14, fontWeight: '700', color: '#00FF87', marginBottom: 8 },
+  notesText: { fontSize: 14, color: '#A0A0B0', lineHeight: 22 },
+  workoutHeader: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, marginBottom: 4 },
+  workoutName: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  workoutMeta: { fontSize: 13, color: '#A0A0B0', marginTop: 4 },
+  sessionCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 10 },
+  sessionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  dayBadge: { backgroundColor: '#00FF87', borderRadius: 8, padding: 8, minWidth: 44, alignItems: 'center' },
+  dayText: { color: '#0A0A0F', fontWeight: '800', fontSize: 13 },
+  sessionName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  sessionMeta: { fontSize: 13, color: '#A0A0B0', marginTop: 2 },
+  exerciseRow: { borderTopWidth: 1, borderTopColor: '#2A2A3E', paddingTop: 10, gap: 4 },
+  exerciseName: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  exerciseDetail: { fontSize: 13, color: '#00FF87' },
+  exerciseTip: { fontSize: 12, color: '#A0A0B0' },
+  footer: { padding: 24 },
+  btn: { backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  btnText: { color: '#0A0A0F', fontSize: 17, fontWeight: '700' },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\ProgressScreen.tsx ===
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { LineChart, BarChart } from 'react-native-chart-kit'
+import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
+import { Report } from '../lib/supabase'
+
+type Route = RouteProp<RootStackParamList, 'Progress'>
+
+const SCREEN_WIDTH = Dimensions.get('window').width - 48
+
+const CHART_CONFIG = {
+  backgroundColor: '#13131A',
+  backgroundGradientFrom: '#13131A',
+  backgroundGradientTo: '#13131A',
+  decimalPlaces: 0,
+  color: (opacity = 1) => `rgba(0, 255, 136, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(160, 160, 176, ${opacity})`,
+  style: { borderRadius: 16 },
+  propsForDots: { r: '4', strokeWidth: '2', stroke: '#00FF88' },
+  propsForBackgroundLines: { stroke: '#1E1E2E' },
+}
+
+export default function ProgressScreen() {
+  const navigation = useNavigation<any>()
+  const route = useRoute<Route>()
+  const profile = route.params?.profile
+  const { loadReports } = useDatabase()
+
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<'score' | 'weight' | 'adherence'>('score')
+
+  useEffect(() => {
+    async function fetch() {
+      setLoading(true)
+      const { data } = await loadReports(14)
+      setReports([...data].reverse())
+      setLoading(false)
+    }
+    fetch()
+  }, [])
+
+  function formatDate(dateStr: string): string {
+    const [, month, day] = dateStr.split('-')
+    return `${day}/${month}`
+  }
+
+  const scoreData = reports.filter(r => r.analysis?.overall_score != null)
+  const scoreChartData = {
+    labels: scoreData.slice(-7).map(r => formatDate(r.date)),
+    datasets: [{ data: scoreData.slice(-7).map(r => r.analysis.overall_score) }],
+  }
+
+  const weightData = reports.filter(r => r.weight_kg != null)
+  const weightChartData = {
+    labels: weightData.slice(-7).map(r => formatDate(r.date)),
+    datasets: [{
+      data: weightData.slice(-7).map(r => r.weight_kg!),
+      color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+    }],
+  }
+
+  const adherenceData = reports.slice(-7)
+  const adherenceChartData = {
+    labels: adherenceData.map(r => formatDate(r.date)),
+    datasets: [{ data: adherenceData.map(r => r.adherence_percent) }],
+  }
+
+  const totalDays = reports.length
+  const trainedDays = reports.filter(r => r.workout_completed).length
+  const avgScore = reports.length > 0
+    ? Math.round(reports.filter(r => r.analysis?.overall_score).reduce((sum, r) => sum + r.analysis.overall_score, 0) / reports.filter(r => r.analysis?.overall_score).length)
+    : 0
+  const avgAdherence = reports.length > 0
+    ? Math.round(reports.reduce((sum, r) => sum + r.adherence_percent, 0) / reports.length)
+    : 0
+  const avgSleep = reports.filter(r => r.sleep_hours).length > 0
+    ? (reports.filter(r => r.sleep_hours).reduce((sum, r) => sum + (r.sleep_hours ?? 0), 0) / reports.filter(r => r.sleep_hours).length).toFixed(1)
+    : '窶・
+
+  const hasData = reports.length > 0
+
+  return (
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>竊・Voltar</Text>
+        </TouchableOpacity>
+        <Text style={s.title}>Meu Progresso</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {loading ? (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color="#00FF88" />
+            <Text style={s.loadingText}>Carregando progresso...</Text>
+          </View>
+        ) : !hasData ? (
+          <View style={s.empty}>
+            <Text style={s.emptyEmoji}>投</Text>
+            <Text style={s.emptyTitle}>Sem dados ainda</Text>
+            <Text style={s.emptyText}>Complete relatﾃｳrios diﾃ｡rios para ver seu progresso aqui</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={s.sectionTitle}>Resumo geral</Text>
+            <View style={s.statsGrid}>
+              <View style={s.statCard}>
+                <Text style={s.statEmoji}>套</Text>
+                <Text style={s.statValue}>{totalDays}</Text>
+                <Text style={s.statLabel}>Dias</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={s.statEmoji}>潮</Text>
+                <Text style={[s.statValue, { color: '#00FF88' }]}>{trainedDays}</Text>
+                <Text style={s.statLabel}>Treinos</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={s.statEmoji}>箝・/Text>
+                <Text style={[s.statValue, { color: '#F59E0B' }]}>{avgScore || '窶・}</Text>
+                <Text style={s.statLabel}>Score mﾃｩdio</Text>
+              </View>
+              <View style={s.statCard}>
+                <Text style={s.statEmoji}>亢</Text>
+                <Text style={[s.statValue, { color: '#A78BFA' }]}>{avgSleep}h</Text>
+                <Text style={s.statLabel}>Sono mﾃｩdio</Text>
+              </View>
+            </View>
+
+            <View style={s.adherenceCard}>
+              <View style={s.adherenceHeader}>
+                <Text style={s.adherenceLabel}>Aderﾃｪncia mﾃｩdia ao plano</Text>
+                <Text style={s.adherencePercent}>{avgAdherence}%</Text>
+              </View>
+              <View style={s.adherenceBar}>
+                <View style={[s.adherenceFill, { width: `${avgAdherence}%` as any }]} />
+              </View>
+            </View>
+
+            <Text style={s.sectionTitle}>ﾃ嗟timos 7 dias</Text>
+            <View style={s.tabs}>
+              {[
+                { id: 'score', label: '箝・Score' },
+                { id: 'weight', label: '笞厄ｸ・Peso' },
+                { id: 'adherence', label: '識 Aderﾃｪncia' },
+              ].map(t => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[s.tab, tab === t.id && s.tabActive]}
+                  onPress={() => setTab(t.id as any)}
+                >
+                  <Text style={[s.tabText, tab === t.id && s.tabTextActive]}>{t.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {tab === 'score' && scoreData.length > 1 && (
+              <View style={s.chartCard}>
+                <LineChart
+                  data={scoreChartData}
+                  width={SCREEN_WIDTH}
+                  height={200}
+                  chartConfig={CHART_CONFIG}
+                  bezier
+                  style={s.chart}
+                  withInnerLines={true}
+                  withOuterLines={false}
+                />
+                <Text style={s.chartNote}>Score de 0 a 100 gerado pela IA</Text>
+              </View>
+            )}
+
+            {tab === 'score' && scoreData.length <= 1 && (
+              <View style={s.noChartData}>
+                <Text style={s.noChartText}>Precisa de pelo menos 2 relatﾃｳrios para exibir o grﾃ｡fico</Text>
+              </View>
+            )}
+
+            {tab === 'weight' && weightData.length > 1 && (
+              <View style={s.chartCard}>
+                <LineChart
+                  data={weightChartData}
+                  width={SCREEN_WIDTH}
+                  height={200}
+                  chartConfig={{
+                    ...CHART_CONFIG,
+                    color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+                    propsForDots: { r: '4', strokeWidth: '2', stroke: '#60A5FA' },
+                  }}
+                  bezier
+                  style={s.chart}
+                  withInnerLines={true}
+                  withOuterLines={false}
+                  yAxisSuffix=" kg"
+                />
+                <Text style={s.chartNote}>Peso corporal registrado nos relatﾃｳrios</Text>
+              </View>
+            )}
+
+            {tab === 'weight' && weightData.length <= 1 && (
+              <View style={s.noChartData}>
+                <Text style={s.noChartText}>Precisa de pelo menos 2 registros de peso para exibir o grﾃ｡fico</Text>
+              </View>
+            )}
+
+            {tab === 'adherence' && adherenceData.length > 0 && (
+              <View style={s.chartCard}>
+                <BarChart
+                  data={adherenceChartData}
+                  width={SCREEN_WIDTH}
+                  height={200}
+                  chartConfig={{
+                    ...CHART_CONFIG,
+                    color: (opacity = 1) => `rgba(245, 158, 11, ${opacity})`,
+                  }}
+                  style={s.chart}
+                  withInnerLines={true}
+                  showValuesOnTopOfBars={true}
+                  yAxisLabel=""
+                  yAxisSuffix="%"
+                />
+                <Text style={s.chartNote}>Aderﾃｪncia ao plano por dia</Text>
+              </View>
+            )}
+
+            <Text style={s.sectionTitle}>Histﾃｳrico</Text>
+            {[...reports].reverse().slice(0, 10).map((report, i) => (
+              <View key={i} style={s.reportRow}>
+                <View style={s.reportLeft}>
+                  <Text style={s.reportDate}>{formatDate(report.date)}</Text>
+                  <Text style={s.reportMood}>{report.mood ?? '窶・}</Text>
+                </View>
+                <View style={s.reportMid}>
+                  <Text style={s.reportStat}>笞｡ {report.energy_level}/5</Text>
+                  <Text style={s.reportStat}>潮 {report.workout_completed ? 'Sim' : 'Nﾃ｣o'}</Text>
+                </View>
+                <View style={s.reportRight}>
+                  {report.analysis?.overall_score != null && (
+                    <View style={[s.scoreBadge, {
+                      backgroundColor: report.analysis.alert_level === 'green'
+                        ? '#0D2E1A' : report.analysis.alert_level === 'yellow'
+                        ? '#2E1A0D' : '#2E0D0D'
+                    }]}>
+                      <Text style={[s.scoreBadgeText, {
+                        color: report.analysis.alert_level === 'green'
+                          ? '#00FF88' : report.analysis.alert_level === 'yellow'
+                          ? '#F59E0B' : '#F87171'
+                      }]}>
+                        {report.analysis.overall_score}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={s.reportAdherence}>{report.adherence_percent}%</Text>
+                </View>
+              </View>
+            ))}
+
+            <View style={{ height: 32 }} />
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24 },
+  back: { color: '#00FF88', fontSize: 16 },
+  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  scroll: { flex: 1, paddingHorizontal: 24 },
+  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingText: { color: '#A0A0B0', fontSize: 16 },
+  empty: { alignItems: 'center', paddingTop: 80, gap: 16, paddingHorizontal: 32 },
+  emptyEmoji: { fontSize: 64 },
+  emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
+  emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#555', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1, marginTop: 8 },
+  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  statCard: { flex: 1, backgroundColor: '#13131A', borderRadius: 16, padding: 14, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#1E1E2E' },
+  statEmoji: { fontSize: 22 },
+  statValue: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 10, color: '#555', textAlign: 'center' },
+  adherenceCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1E1E2E', gap: 10 },
+  adherenceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  adherenceLabel: { fontSize: 14, color: '#A0A0B0', fontWeight: '600' },
+  adherencePercent: { fontSize: 18, fontWeight: '800', color: '#00FF88' },
+  adherenceBar: { height: 6, backgroundColor: '#1E1E2E', borderRadius: 3, overflow: 'hidden' },
+  adherenceFill: { height: 6, borderRadius: 3, backgroundColor: '#00FF88' },
+  tabs: { flexDirection: 'row', backgroundColor: '#1A1A2E', borderRadius: 12, padding: 4, marginBottom: 16 },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
+  tabActive: { backgroundColor: '#00FF88' },
+  tabText: { color: '#A0A0B0', fontWeight: '600', fontSize: 12 },
+  tabTextActive: { color: '#0A0A0F' },
+  chartCard: { backgroundColor: '#13131A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#1E1E2E', alignItems: 'center' },
+  chart: { borderRadius: 12, marginLeft: -16 },
+  chartNote: { fontSize: 12, color: '#555', marginTop: 8, textAlign: 'center' },
+  noChartData: { backgroundColor: '#13131A', borderRadius: 16, padding: 24, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E2E' },
+  noChartText: { color: '#555', fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  reportRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131A', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#1E1E2E' },
+  reportLeft: { width: 52, gap: 4 },
+  reportDate: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  reportMood: { fontSize: 11, color: '#555' },
+  reportMid: { flex: 1, gap: 4, paddingHorizontal: 12 },
+  reportStat: { fontSize: 12, color: '#A0A0B0' },
+  reportRight: { alignItems: 'flex-end', gap: 4 },
+  scoreBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  scoreBadgeText: { fontSize: 14, fontWeight: '800' },
+  reportAdherence: { fontSize: 12, color: '#555' },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\RegisterScreen.tsx ===
+import React, { useState } from 'react'
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, ScrollView
+} from 'react-native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { RootStackParamList } from '../../App'
+import { useAuth } from '../context/AuthContext'
+
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>
+}
+
+// Validaﾃｧﾃ｣o de senha forte: mﾃｭnimo 8 chars, 1 maiﾃｺscula, 1 nﾃｺmero, 1 especial
+function isStrongPassword(password: string): boolean {
+  return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/.test(password)
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+export default function RegisterScreen({ navigation }: Props) {
+  const { signUp } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleRegister = async () => {
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Erro', 'Preencha todos os campos.')
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      Alert.alert('Erro', 'Digite um email vﾃ｡lido.')
+      return
+    }
+
+    if (!isStrongPassword(password)) {
+      Alert.alert(
+        'Senha fraca',
+        'A senha deve ter no mﾃｭnimo 8 caracteres, uma letra maiﾃｺscula, um nﾃｺmero e um caractere especial.'
+      )
+      return
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Erro', 'As senhas nﾃ｣o coincidem.')
+      return
+    }
+
+    setLoading(true)
+    const { error } = await signUp(email, password)
+    setLoading(false)
+
+    if (error) {
+      Alert.alert('Erro ao criar conta', 'Tente novamente com outro email.')
+      return
+    }
+
+    Alert.alert(
+      'Conta criada!',
+      'Verifique seu email para confirmar a conta antes de entrar.',
+      [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+    )
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
+          <Text style={styles.backText}>竊・Voltar</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.title}>Criar conta</Text>
+        <Text style={styles.subtitle}>Comece seu protocolo personalizado</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#555"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={email}
+          onChangeText={setEmail}
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Senha"
+          placeholderTextColor="#555"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <Text style={styles.hint}>Mﾃｭn. 8 chars, 1 maiﾃｺscula, 1 nﾃｺmero, 1 caractere especial</Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Confirmar senha"
+          placeholderTextColor="#555"
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleRegister}
+          disabled={loading}
+        >
+          {loading
+            ? <ActivityIndicator color="#000" />
+            : <Text style={styles.buttonText}>Criar conta</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  inner: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 40 },
+  back: { marginBottom: 32 },
+  backText: { color: '#00FF88', fontSize: 16 },
+  title: { fontSize: 32, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#666', marginBottom: 40 },
+  input: {
+    backgroundColor: '#13131A',
+    borderWidth: 1,
+    borderColor: '#1E1E2E',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#FFF',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  hint: { color: '#444', fontSize: 12, marginBottom: 12, marginTop: -4 },
+  button: {
+    backgroundColor: '#00FF88',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#000', fontWeight: '700', fontSize: 16 },
+})
+
+=== C:\Users\wow\Desktop\BodyOs\apps\mobile\src\screens\ReportScreen.tsx ===
+// Tela de relatﾃｳrio diﾃ｡rio 窶・coleta dados de aderﾃｪncia, treino, humor e energia
+// Esses dados alimentam o sistema de anﾃ｡lise e feedback da IA
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
+import { useState } from 'react'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { RootStackParamList } from '../../App'
+import { useDatabase } from '../context/DatabaseContext'
+
+type Route = RouteProp<RootStackParamList, 'Report'>
+
+const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
+
+// Opﾃｧﾃｵes de humor 窶・emojis tornam a UX mais intuitiva e rﾃ｡pida
+const MOODS = [
+  { id: 'otimo', label: 'ﾃ鍍imo', emoji: '・' },
+  { id: 'bom', label: 'Bom', emoji: '凾' },
+  { id: 'neutro', label: 'Neutro', emoji: '・' },
+  { id: 'cansado', label: 'Cansado', emoji: '亢' },
+  { id: 'ruim', label: 'Ruim', emoji: '・' },
+]
+
+// Escala de energia de 1 a 5 窶・usada pela IA para detectar overtraining ou falta de recuperaﾃｧﾃ｣o
+const ENERGY_LEVELS = [1, 2, 3, 4, 5]
+
+export default function ReportScreen() {
+  const navigation = useNavigation()
+  const { saveReport } = useDatabase()
+  const route = useRoute<Route>()
+  const profile = route.params?.profile
+
+  // Estado do formulﾃ｡rio 窶・estrutura espelha o DailyReport do backend
+  const [form, setForm] = useState({
+    workout_completed: false,
+    workout_notes: '',
+    energy_level: 3 as 1 | 2 | 3 | 4 | 5,
+    sleep_hours: '',
+    mood: '',
+    weight_kg: '',
+    adherence_percent: 100,
+    meals_logged: [] as { name: string; calories: number; protein: number }[],
+  })
+
+  const [loading, setLoading] = useState(false)
+  const [feedback, setFeedback] = useState<any>(null)
+  const [error, setError] = useState('')
+
+  // Envia o relatﾃｳrio para a IA analisar e retorna feedback personalizado
+  async function submitReport() {
+    if (!form.mood) {
+      setError('Selecione seu humor do dia')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+
+      const report = {
+        user_profile: {
+          goal: profile?.goal ?? 'muscle_gain',
+          fitness_level: profile?.fitness_level ?? 'intermediate',
+          weekly_days: profile?.weekly_days ?? 4,
+        },
+        date: today,
+        weight_kg: form.weight_kg ? Number(form.weight_kg) : undefined,
+        meals_logged: form.meals_logged,
+        workout_completed: form.workout_completed,
+        workout_notes: form.workout_notes || undefined,
+        energy_level: form.energy_level,
+        sleep_hours: form.sleep_hours ? Number(form.sleep_hours) : undefined,
+        mood: form.mood,
+        adherence_percent: form.adherence_percent,
+      }
+
+      const [analysis, clientFeedback] = await Promise.all([
+        fetch(`${AI_SERVICE_URL}/report/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
+          body: JSON.stringify(report),
+        }).then(r => r.json()),
+        fetch(`${AI_SERVICE_URL}/feedback/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+          },
+          body: JSON.stringify(report),
+        }).then(r => r.json()),
+      ])
+      const result = { analysis: analysis.data, clientFeedback: clientFeedback.data }
+      setFeedback(result)
+
+      // Persiste no Supabase
+      await saveReport({
+        date: today,
+        workout_completed: form.workout_completed,
+        workout_notes: form.workout_notes || null,
+        energy_level: form.energy_level,
+        sleep_hours: form.sleep_hours ? Number(form.sleep_hours) : null,
+        mood: form.mood,
+        weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+        water_ml: null,
+        adherence_percent: form.adherence_percent,
+        analysis: result.analysis,
+        feedback: result.clientFeedback,
+      })
+
+    } catch (e) {
+      setError('Erro ao enviar relatﾃｳrio. Verifique sua conexﾃ｣o.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Cor do alerta baseada no nﾃｭvel retornado pela IA
+  const alertColor: Record<string, string> = {
+    green: '#00FF87',
+    yellow: '#F59E0B',
+    red: '#F87171',
+  }
+
+  return (
+    <SafeAreaView style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={s.back}>竊・Voltar</Text>
+        </TouchableOpacity>
+        <Text style={s.title}>Relatﾃｳrio de hoje</Text>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <ScrollView style={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Formulﾃ｡rio 窶・sﾃｳ exibe se ainda nﾃ｣o enviou */}
+        {!feedback && (
+          <View style={s.form}>
+
+            {/* Treino realizado 窶・toggle simples */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Treino realizado?</Text>
+              <View style={s.toggleRow}>
+                <TouchableOpacity
+                  style={[s.toggleBtn, form.workout_completed && s.toggleBtnActive]}
+                  onPress={() => setForm(f => ({ ...f, workout_completed: true }))}
+                >
+                  <Text style={[s.toggleText, form.workout_completed && s.toggleTextActive]}>笨・Sim, treinei</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.toggleBtn, !form.workout_completed && s.toggleBtnActiveRed]}
+                  onPress={() => setForm(f => ({ ...f, workout_completed: false }))}
+                >
+                  <Text style={[s.toggleText, !form.workout_completed && s.toggleTextRed]}>笶・Nﾃ｣o treinei</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Notas do treino 窶・sﾃｳ aparece se treinou */}
+              {form.workout_completed && (
+                <TextInput
+                  style={s.textArea}
+                  placeholder="Como foi o treino? Ex: aumentei carga no supino..."
+                  placeholderTextColor="#555"
+                  multiline
+                  numberOfLines={3}
+                  value={form.workout_notes}
+                  onChangeText={v => setForm(f => ({ ...f, workout_notes: v }))}
+                />
+              )}
+            </View>
+
+            {/* Nﾃｭvel de energia 窶・escala 1-5 */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Nﾃｭvel de energia</Text>
+              <View style={s.energyRow}>
+                {ENERGY_LEVELS.map(level => (
+                  <TouchableOpacity
+                    key={level}
+                    style={[s.energyBtn, form.energy_level === level && s.energyBtnActive]}
+                    onPress={() => setForm(f => ({ ...f, energy_level: level as 1 | 2 | 3 | 4 | 5 }))}
+                  >
+                    <Text style={[s.energyNum, form.energy_level === level && s.energyNumActive]}>{level}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={s.energyLabels}>
+                <Text style={s.energyLabelText}>Sem energia</Text>
+                <Text style={s.energyLabelText}>Mﾃ｡ximo</Text>
+              </View>
+            </View>
+
+            {/* Humor do dia */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Humor do dia</Text>
+              <View style={s.moodRow}>
+                {MOODS.map(m => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[s.moodBtn, form.mood === m.id && s.moodBtnActive]}
+                    onPress={() => setForm(f => ({ ...f, mood: m.id }))}
+                  >
+                    <Text style={s.moodEmoji}>{m.emoji}</Text>
+                    <Text style={[s.moodLabel, form.mood === m.id && s.moodLabelActive]}>{m.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Dados fﾃｭsicos do dia */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Dados do dia</Text>
+              <View style={s.inputsRow}>
+                <View style={s.inputWrap}>
+                  <Text style={s.inputLabel}>Peso (kg)</Text>
+                  <TextInput
+                    style={s.input}
+                    placeholder="ex: 79.5"
+                    placeholderTextColor="#555"
+                    keyboardType="numeric"
+                    value={form.weight_kg}
+                    onChangeText={v => setForm(f => ({ ...f, weight_kg: v }))}
+                  />
+                </View>
+                <View style={s.inputWrap}>
+                  <Text style={s.inputLabel}>Sono (horas)</Text>
+                  <TextInput
+                    style={s.input}
+                    placeholder="ex: 7.5"
+                    placeholderTextColor="#555"
+                    keyboardType="numeric"
+                    value={form.sleep_hours}
+                    onChangeText={v => setForm(f => ({ ...f, sleep_hours: v }))}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Aderﾃｪncia ao plano 窶・slider simplificado com botﾃｵes */}
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Aderﾃｪncia ao plano: <Text style={s.adherenceValue}>{form.adherence_percent}%</Text></Text>
+              <View style={s.adherenceRow}>
+                {[25, 50, 75, 100].map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[s.adherenceBtn, form.adherence_percent === v && s.adherenceBtnActive]}
+                    onPress={() => setForm(f => ({ ...f, adherence_percent: v }))}
+                  >
+                    <Text style={[s.adherenceBtnText, form.adherence_percent === v && s.adherenceBtnTextActive]}>{v}%</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {error ? <Text style={s.error}>{error}</Text> : null}
+          </View>
+        )}
+
+        {/* Loading 窶・enquanto IA processa */}
+        {loading && (
+          <View style={s.loadingBox}>
+            <ActivityIndicator size="large" color="#00FF87" />
+            <Text style={s.loadingText}>IA analisando seu dia...</Text>
+          </View>
+        )}
+
+        {/* Resultado do feedback da IA */}
+        {feedback && (
+          <View style={s.feedbackContainer}>
+
+            {/* Score geral com cor dinﾃ｢mica baseada no alert_level */}
+            <View style={[s.scoreCard, { borderColor: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
+              <Text style={s.scoreEmoji}>{feedback.clientFeedback?.emoji_summary}</Text>
+              <Text style={[s.scoreValue, { color: alertColor[feedback.analysis?.alert_level] ?? '#00FF87' }]}>
+                {feedback.analysis?.overall_score}/100
+              </Text>
+              <Text style={s.scoreLabel}>Score do dia</Text>
+            </View>
+
+            {/* Mensagem motivacional personalizada */}
+            <View style={s.messageCard}>
+              <Text style={s.messageSubject}>{feedback.clientFeedback?.subject}</Text>
+              <Text style={s.messageGreeting}>{feedback.clientFeedback?.greeting}</Text>
+              <Text style={s.messageBody}>{feedback.clientFeedback?.body}</Text>
+            </View>
+
+            {/* Pontos positivos */}
+            {feedback.analysis?.highlights?.length > 0 && (
+              <View style={s.card}>
+                <Text style={s.cardTitle}>笨・Destaques</Text>
+                {feedback.analysis.highlights.map((h: string, i: number) => (
+                  <Text key={i} style={s.cardItem}>窶｢ {h}</Text>
+                ))}
+              </View>
+            )}
+
+            {/* Pontos de atenﾃｧﾃ｣o */}
+            {feedback.analysis?.attention_points?.length > 0 && (
+              <View style={[s.card, s.cardWarning]}>
+                <Text style={s.cardTitle}>笞・・Pontos de atenﾃｧﾃ｣o</Text>
+                {feedback.analysis.attention_points.map((a: string, i: number) => (
+                  <Text key={i} style={s.cardItem}>窶｢ {a}</Text>
+                ))}
+              </View>
+            )}
+
+            {/* Dicas para amanhﾃ｣ */}
+            {feedback.analysis?.tomorrow_tips?.length > 0 && (
+              <View style={s.card}>
+                <Text style={s.cardTitle}>識 Para amanhﾃ｣</Text>
+                {feedback.analysis.tomorrow_tips.map((t: string, i: number) => (
+                  <Text key={i} style={s.cardItem}>窶｢ {t}</Text>
+                ))}
+              </View>
+            )}
+
+            {/* Anﾃ｡lises detalhadas por ﾃ｡rea */}
+            {[
+              { title: '･・Nutriﾃｧﾃ｣o', text: feedback.analysis?.nutrition_feedback },
+              { title: '暑・・Treino', text: feedback.analysis?.workout_feedback },
+              { title: '亢 Recuperaﾃｧﾃ｣o', text: feedback.analysis?.recovery_feedback },
+            ].map((item, i) => item.text ? (
+              <View key={i} style={s.card}>
+                <Text style={s.cardTitle}>{item.title}</Text>
+                <Text style={s.cardText}>{item.text}</Text>
+              </View>
+            ) : null)}
+
+            {/* Encerramento motivacional */}
+            <View style={s.closingCard}>
+              <Text style={s.closingText}>{feedback.clientFeedback?.closing}</Text>
+            </View>
+
+            {/* Botﾃ｣o para novo relatﾃｳrio */}
+            <TouchableOpacity style={s.newReportBtn} onPress={() => setFeedback(null)}>
+              <Text style={s.newReportBtnText}>統 Novo relatﾃｳrio</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Botﾃ｣o de envio 窶・sﾃｳ aparece enquanto preenche o formulﾃ｡rio */}
+      {!loading && !feedback && (
+        <View style={s.footer}>
+          <TouchableOpacity style={s.submitBtn} onPress={submitReport}>
+            <Text style={s.submitBtnText}>､・Analisar meu dia com IA</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0A0A0F' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24 },
+  back: { color: '#00FF87', fontSize: 16 },
+  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  scroll: { flex: 1 },
+  form: { padding: 24, gap: 8 },
+  section: { marginBottom: 24, gap: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  toggleRow: { flexDirection: 'row', gap: 12 },
+  toggleBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  toggleBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  toggleBtnActiveRed: { borderColor: '#F87171', backgroundColor: '#2E0D0D' },
+  toggleText: { color: '#A0A0B0', fontWeight: '600' },
+  toggleTextActive: { color: '#00FF87' },
+  toggleTextRed: { color: '#F87171' },
+  textArea: { backgroundColor: '#1A1A2E', borderRadius: 12, padding: 16, color: '#FFFFFF', fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
+  energyRow: { flexDirection: 'row', gap: 8 },
+  energyBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  energyBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  energyNum: { fontSize: 18, fontWeight: '800', color: '#A0A0B0' },
+  energyNumActive: { color: '#00FF87' },
+  energyLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  energyLabelText: { fontSize: 11, color: '#555' },
+  moodRow: { flexDirection: 'row', gap: 8 },
+  moodBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, paddingVertical: 12, alignItems: 'center', gap: 4, borderWidth: 2, borderColor: 'transparent' },
+  moodBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  moodEmoji: { fontSize: 22 },
+  moodLabel: { fontSize: 10, color: '#A0A0B0' },
+  moodLabelActive: { color: '#00FF87' },
+  inputsRow: { flexDirection: 'row', gap: 12 },
+  inputWrap: { flex: 1, gap: 8 },
+  inputLabel: { fontSize: 13, color: '#A0A0B0', fontWeight: '600' },
+  input: { backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14, color: '#FFFFFF', fontSize: 15 },
+  adherenceValue: { color: '#00FF87' },
+  adherenceRow: { flexDirection: 'row', gap: 8 },
+  adherenceBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 10, paddingVertical: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  adherenceBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  adherenceBtnText: { color: '#A0A0B0', fontWeight: '700' },
+  adherenceBtnTextActive: { color: '#00FF87' },
+  error: { color: '#F87171', textAlign: 'center', fontSize: 14 },
+  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingText: { color: '#A0A0B0', fontSize: 16 },
+  feedbackContainer: { padding: 24, gap: 16 },
+  scoreCard: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 24, alignItems: 'center', borderWidth: 2, gap: 8 },
+  scoreEmoji: { fontSize: 40 },
+  scoreValue: { fontSize: 48, fontWeight: '800' },
+  scoreLabel: { fontSize: 14, color: '#A0A0B0' },
+  messageCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 20, gap: 8 },
+  messageSubject: { fontSize: 16, fontWeight: '700', color: '#00FF87' },
+  messageGreeting: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  messageBody: { fontSize: 14, color: '#A0A0B0', lineHeight: 22 },
+  card: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 8 },
+  cardWarning: { borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  cardItem: { fontSize: 14, color: '#A0A0B0', lineHeight: 22 },
+  cardText: { fontSize: 14, color: '#A0A0B0', lineHeight: 22 },
+  closingCard: { backgroundColor: '#0D2E1A', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#00FF87' },
+  closingText: { fontSize: 15, color: '#00FF87', textAlign: 'center', fontWeight: '600', lineHeight: 24 },
+  newReportBtn: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, alignItems: 'center' },
+  newReportBtnText: { color: '#A0A0B0', fontWeight: '600', fontSize: 15 },
+  footer: { padding: 24 },
+  submitBtn: { backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  submitBtnText: { color: '#0A0A0F', fontSize: 17, fontWeight: '700' },
+})
+

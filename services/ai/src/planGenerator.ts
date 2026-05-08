@@ -2,13 +2,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Puxa a chave da Groq das variáveis de ambiente do Render
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
 /**
  * Função centralizada para chamadas à API da Groq
  */
-async function callGroq(prompt: string) {
+async function callGroq(prompt: string, language: string) {
   if (!GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY não configurada no servidor.");
   }
@@ -23,7 +22,7 @@ async function callGroq(prompt: string) {
       messages: [
         { 
           role: "system", 
-          content: "Você é um assistente de fitness e nutrição de elite. Você deve gerar planos detalhados e responder SEMPRE no idioma solicitado pelo usuário, seguindo rigorosamente o formato JSON." 
+          content: `You are a professional fitness and nutrition expert. You MUST respond exclusively in ${language}. All names of exercises, foods, and notes must be in ${language}. Keep the JSON structure intact.` 
         }, 
         { 
           role: "user", 
@@ -31,7 +30,7 @@ async function callGroq(prompt: string) {
         }
       ],
       model: "llama-3.1-8b-instant",
-      temperature: 0.2, // Um pouco mais de criatividade para os nomes, mas ainda estável
+      temperature: 0.1,
       response_format: { type: "json_object" }
     })
   });
@@ -39,8 +38,8 @@ async function callGroq(prompt: string) {
   const data = await response.json() as any;
 
   if (!response.ok) {
-    console.error("Erro detalhado Groq:", data);
-    throw new Error(data.error?.message || "Erro na comunicação com a API Groq");
+    console.error("Erro Groq:", data);
+    throw new Error(data.error?.message || "Erro na API Groq");
   }
 
   return data.choices[0].message.content;
@@ -48,54 +47,60 @@ async function callGroq(prompt: string) {
 
 export async function generateWorkoutPlan(userData: any) {
   try {
-    const lang = userData.language || 'Português';
-    
-    const prompt = `
-      ATENÇÃO: Responda OBRIGATORIAMENTE em ${lang}. Todos os nomes de exercícios e notas devem estar em ${lang}.
-      Gere um plano de treino JSON para:
-      Objetivo: ${userData.goal}
-      Nível: ${userData.fitness_level}
-      Dias por semana: ${userData.weekly_days}
+    // Detecta o idioma do dispositivo enviado pelo app (ex: 'es', 'pt', 'en')
+    const lang = userData.language || 'Portuguese';
 
-      Formato esperado:
+    const prompt = `
+      Create a complete workout plan in ${lang}.
+      Goal: ${userData.goal}
+      Level: ${userData.fitness_level}
+      Days: ${userData.weekly_days}
+
+      REGRAS:
+      1. Write everything (exercise names, sessions, and tips) in ${lang}.
+      2. Return ONLY the JSON object.
+
+      Structure:
       {
-        "name": "Nome do Treino em ${lang}",
+        "name": "Workout Plan Name in ${lang}",
         "duration_weeks": 4,
-        "methodology": "Ex: ABC, Full Body",
+        "methodology": "Methodology name",
         "sessions": [
           {
             "day_of_week": 1,
-            "name": "Nome da Sessão",
-            "focus": "Músculos alvo",
-            "estimated_minutes": 60,
+            "name": "Session Name in ${lang}",
+            "focus": "Target muscles",
             "exercises": [
-              { "name": "Nome do Exercício em ${lang}", "sets": 3, "reps": "12", "rest_seconds": 60, "technique_tip": "Dica em ${lang}" }
+              { "name": "Exercise Name in ${lang}", "sets": 3, "reps": "12", "technique_tip": "Tip in ${lang}" }
             ]
           }
         ],
-        "trainer_notes": "Notas finais em ${lang}"
+        "trainer_notes": "Final notes in ${lang}"
       }
     `;
 
-    const content = await callGroq(prompt);
+    const content = await callGroq(prompt, lang);
     return JSON.parse(content);
   } catch (error: any) {
-    console.error("ERRO WORKOUT (IDIOMA):", error.message);
+    console.error("WORKOUT ERROR:", error.message);
     throw error;
   }
 }
 
 export async function generateNutritionPlan(userData: any) {
   try {
-    const lang = userData.language || 'Português';
+    const lang = userData.language || 'Portuguese';
 
     const prompt = `
-      ATENÇÃO: Responda OBRIGATORIAMENTE em ${lang}. Todos os nomes de alimentos e refeições devem estar em ${lang}.
-      Gere uma dieta JSON para:
-      Objetivo: ${userData.goal}
-      Peso atual: ${userData.current_weight_kg}kg
+      Create a nutrition plan in ${lang}.
+      Goal: ${userData.goal}
+      Weight: ${userData.current_weight_kg}kg
 
-      Formato esperado:
+      REGRAS:
+      1. Write all food names, meals, and notes in ${lang}.
+      2. Return ONLY the JSON object.
+
+      Structure:
       {
         "daily_calories": 2000,
         "protein_g": 150,
@@ -104,27 +109,25 @@ export async function generateNutritionPlan(userData: any) {
         "water_ml": 3000,
         "meals": [
           {
-            "name": "Nome da Refeição em ${lang}",
+            "name": "Meal Name in ${lang}",
             "meal_type": "breakfast",
             "time_suggestion": "08:00",
-            "total_calories": 500,
-            "foods": [{ "name": "Nome do Alimento em ${lang}", "quantity_g": 100, "calories": 100 }]
+            "foods": [{ "name": "Food Name in ${lang}", "quantity_g": 100, "calories": 100 }]
           }
         ],
-        "supplements": [{ "name": "Suplemento", "dose": "5g", "timing": "Sugestão em ${lang}" }],
-        "nutritionist_notes": "Dicas de nutrição em ${lang}"
+        "supplements": [{ "name": "Supplement Name", "dose": "5g", "timing": "Instructions in ${lang}" }],
+        "nutritionist_notes": "Notes in ${lang}"
       }
     `;
 
-    const content = await callGroq(prompt);
+    const content = await callGroq(prompt, lang);
     return JSON.parse(content);
   } catch (error: any) {
-    console.error("ERRO NUTRIÇÃO (IDIOMA):", error.message);
+    console.error("NUTRITION ERROR:", error.message);
     throw error;
   }
 }
 
-// Placeholders para manter compatibilidade
 export async function analyzeReport(data: any) { return { status: 'success' }; }
-export async function generateClientFeedback(data: any) { return { feedback: 'Excelente progresso!' }; }
+export async function generateClientFeedback(data: any) { return { feedback: 'Keep going!' }; }
 export async function adaptProtocol(data: any) { return { status: 'adapted' }; }

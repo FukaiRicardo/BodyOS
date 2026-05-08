@@ -9,7 +9,8 @@ import { useDatabase } from '../context/DatabaseContext'
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
-const AI_SERVICE_URL = process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
+// URL DO RENDER FIXA
+const AI_SERVICE_URL = 'https://bodyos-ai-service.onrender.com'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -25,6 +26,7 @@ export default function PlanScreen() {
   const { savePlan, loadLatestPlan } = useDatabase()
   const { t, i18n } = useTranslation()
 
+  // VARIÁVEIS DE ESTADO (A função generatePlan precisa estar aqui dentro para enxergá-las)
   const [loading, setLoading] = useState(false)
   const [loadingExisting, setLoadingExisting] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,48 +60,46 @@ export default function PlanScreen() {
     fetchExistingPlan()
   }, [])
 
+  // NOVA FUNÇÃO GENERATE PLAN
   async function generatePlan() {
     setLoading(true)
     setError('')
     
-    // CORREÇÃO: Incluído 'es' na lista de idiomas permitidos para o backend
     const currentLang = i18n.language?.split('-')[0].toLowerCase() || 'pt'
     const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
 
+    const bodyData = {
+      goal: profile?.goal ?? 'muscle_gain',
+      fitness_level: profile?.fitness_level ?? 'intermediate',
+      weekly_days: profile?.weekly_days ?? 4,
+      current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
+      height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
+      age: profile?.age ? Number(profile.age) : undefined,
+      gender: profile?.gender,
+      language: deviceLanguage,
+    }
+
     try {
+      console.log("Iniciando chamadas para o Render...")
+
       const [nutritionRaw, workoutRaw] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
           method: 'POST',
-          headers: {
+          headers: { 
             'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
           },
-          body: JSON.stringify({
-            goal: profile?.goal ?? 'muscle_gain',
-            fitness_level: profile?.fitness_level ?? 'intermediate',
-            weekly_days: profile?.weekly_days ?? 4,
-            current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
-            height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
-            age: profile?.age ? Number(profile.age) : undefined,
-            gender: profile?.gender,
-            language: deviceLanguage,
-          }),
-        }).then(r => r.json()),
+          body: JSON.stringify(bodyData),
+        }).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(`Erro API: ${t}`) })),
+  
         fetch(`${AI_SERVICE_URL}/workout/generate`, {
           method: 'POST',
-          headers: {
+          headers: { 
             'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
           },
-          body: JSON.stringify({
-            goal: profile?.goal ?? 'muscle_gain',
-            fitness_level: profile?.fitness_level ?? 'intermediate',
-            weekly_days: profile?.weekly_days ?? 4,
-            current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
-            age: profile?.age ? Number(profile.age) : undefined,
-            language: deviceLanguage,
-          }),
-        }).then(r => r.json()),
+          body: JSON.stringify(bodyData),
+        }).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(`Erro API: ${t}`) })),
       ])
 
       const nutritionData = nutritionRaw.data ?? nutritionRaw
@@ -108,7 +108,7 @@ export default function PlanScreen() {
       const newPlan = {
         nutrition: nutritionData,
         workout: workoutData,
-        ai_model: nutritionRaw.ai_model ?? 'groq',
+        ai_model: nutritionRaw.ai_model ?? 'gemini',
       }
 
       setPlan(newPlan)
@@ -117,8 +117,8 @@ export default function PlanScreen() {
       setSaving(false)
 
     } catch (e) {
-      console.error(e)
-      setError(t('plan.generateError'))
+      console.error("ERRO NO PLANO:", e)
+      setError(t('plan.generateError') || "Erro ao gerar plano.")
     } finally {
       setLoading(false)
     }
@@ -269,7 +269,6 @@ export default function PlanScreen() {
             {plan.workout.sessions?.map((session: any, i: number) => (
               <View key={i} style={s.sessionCard}>
                 <View style={s.sessionHeader}>
-                  {/* CORREÇÃO: View no lugar de div */}
                   <View style={s.dayBadge}>
                     <Text style={s.dayText}>{dayName[session.day_of_week] || '?'}</Text>
                   </View>

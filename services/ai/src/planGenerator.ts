@@ -47,29 +47,31 @@ async function callGroq(prompt: string, language: string) {
 
 export async function generateWorkoutPlan(userData: any) {
   try {
-    // Detecta o idioma do dispositivo enviado pelo app (ex: 'es', 'pt', 'en')
+    // Captura o idioma do dispositivo. Ex: 'Japanese', 'Spanish', 'Portuguese'
     const lang = userData.language || 'Portuguese';
 
     const prompt = `
-      Create a complete workout plan in ${lang}.
+      Create a complete workout plan.
+      TARGET LANGUAGE: ${lang}
       Goal: ${userData.goal}
       Level: ${userData.fitness_level}
       Days: ${userData.weekly_days}
 
-      REGRAS:
-      1. Write everything (exercise names, sessions, and tips) in ${lang}.
-      2. Return ONLY the JSON object.
+      STRICT RULES:
+      1. All content (exercise names, descriptions, and tips) MUST be written in ${lang}.
+      2. If language is Japanese, use Kanji/Kana appropriately.
+      3. Return ONLY a valid JSON object.
 
       Structure:
       {
         "name": "Workout Plan Name in ${lang}",
         "duration_weeks": 4,
-        "methodology": "Methodology name",
+        "methodology": "Methodology name in ${lang}",
         "sessions": [
           {
             "day_of_week": 1,
             "name": "Session Name in ${lang}",
-            "focus": "Target muscles",
+            "focus": "Target muscles in ${lang}",
             "exercises": [
               { "name": "Exercise Name in ${lang}", "sets": 3, "reps": "12", "technique_tip": "Tip in ${lang}" }
             ]
@@ -92,13 +94,15 @@ export async function generateNutritionPlan(userData: any) {
     const lang = userData.language || 'Portuguese';
 
     const prompt = `
-      Create a nutrition plan in ${lang}.
+      Create a nutrition plan.
+      TARGET LANGUAGE: ${lang}
       Goal: ${userData.goal}
       Weight: ${userData.current_weight_kg}kg
 
-      REGRAS:
-      1. Write all food names, meals, and notes in ${lang}.
-      2. Return ONLY the JSON object.
+      STRICT RULES:
+      1. All food names, meal names, and nutritionist notes MUST be in ${lang}.
+      2. If language is Japanese, use Kanji/Kana appropriately.
+      3. Return ONLY a valid JSON object.
 
       Structure:
       {
@@ -115,7 +119,7 @@ export async function generateNutritionPlan(userData: any) {
             "foods": [{ "name": "Food Name in ${lang}", "quantity_g": 100, "calories": 100 }]
           }
         ],
-        "supplements": [{ "name": "Supplement Name", "dose": "5g", "timing": "Instructions in ${lang}" }],
+        "supplements": [{ "name": "Supplement Name in ${lang}", "dose": "5g", "timing": "Instructions in ${lang}" }],
         "nutritionist_notes": "Notes in ${lang}"
       }
     `;

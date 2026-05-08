@@ -102,9 +102,10 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+  <NavigationContainer ref={navigationRef}>
       <StatusBar style="light" />
       <Stack.Navigator
+        id="main-stack" // <--- Adicione esta linha aqui
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: '#0A0A0F' },

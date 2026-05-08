@@ -3,31 +3,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
-
-// Função com sistema de tentativa (Fallback)
-async function askGemini(prompt: string) {
-  const models = ["gemini-1.5-flash", "gemini-pro"]; // Tenta o novo, depois o antigo
-  
-  for (const modelName of models) {
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      return text.replace(/```json|```/g, '').trim();
-    } catch (err) {
-      console.error(`Falha no modelo ${modelName}, tentando próximo...`);
-      continue; 
-    }
-  }
-  throw new Error("Nenhum modelo do Gemini respondeu.");
-}
+// Tenta pegar a chave de dois nomes comuns para evitar erro de digitação no Render
+const apiKey = process.env.GOOGLE_API_KEY || process.env.API_KEY || '';
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function generateNutritionPlan(userData: any) {
   try {
-    const prompt = `Retorne apenas JSON para dieta: Objetivo:${userData.goal}, Peso:${userData.current_weight_kg}kg. Formato: {"daily_calories":2000, "protein_g":150, "carbs_g":200, "fat_g":60, "water_ml":3000, "meals":[], "supplements":[], "nutritionist_notes":""}`;
-    const jsonString = await askGemini(prompt);
-    return JSON.parse(jsonString);
+    // Usando gemini-pro que tem maior disponibilidade global
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    const prompt = `Gere um plano nutricional em JSON para objetivo ${userData.goal}. 
+    Responda APENAS o objeto JSON abaixo:
+    {"daily_calories":2000, "protein_g":150, "carbs_g":200, "fat_g":60, "water_ml":3000, "meals":[], "supplements":[], "nutritionist_notes":"Foco em proteínas."}`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch (error) {
     console.error("NUTRITION ERROR:", error);
     throw error;
@@ -36,15 +27,22 @@ export async function generateNutritionPlan(userData: any) {
 
 export async function generateWorkoutPlan(userData: any) {
   try {
-    const prompt = `Retorne apenas JSON para treino: Objetivo:${userData.goal}, Dias:${userData.weekly_days}. Formato: {"name":"Treino A", "duration_weeks":4, "methodology":"ABC", "sessions":[], "trainer_notes":""}`;
-    const jsonString = await askGemini(prompt);
-    return JSON.parse(jsonString);
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    const prompt = `Gere um treino em JSON para objetivo ${userData.goal} e ${userData.weekly_days} dias.
+    Responda APENAS o objeto JSON abaixo:
+    {"name":"Treino Base", "duration_weeks":4, "methodology":"Hipertrofia", "sessions":[], "trainer_notes":"Aquecer bem."}`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    return JSON.parse(text.replace(/```json|```/g, '').trim());
   } catch (error) {
     console.error("WORKOUT ERROR:", error);
     throw error;
   }
 }
 
-export async function analyzeReport(data: any) { return { status: 'success' }; }
-export async function generateClientFeedback(data: any) { return { feedback: 'Keep going!' }; }
-export async function adaptProtocol(data: any) { return { status: 'adapted' }; }
+// Placeholders obrigatórios para o index.ts não dar erro
+export async function analyzeReport(data: any) { return { status: 'ok' }; }
+export async function generateClientFeedback(data: any) { return { feedback: 'ok' }; }
+export async function adaptProtocol(data: any) { return { status: 'ok' }; }

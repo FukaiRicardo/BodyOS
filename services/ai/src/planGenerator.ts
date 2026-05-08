@@ -3,42 +3,43 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Tenta carregar a chave
 const apiKey = process.env.GOOGLE_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function generateWorkoutPlan(userData: any) {
   try {
-    // Usamos o gemini-1.5-flash que é o mais atualizado
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // gemini-pro é o modelo mais estável e compatível com todas as regiões do Render
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
-    const prompt = `Gere um treino JSON para objetivo ${userData.goal}. Responda apenas o JSON puro.`;
+    const prompt = `Gere um plano de treino JSON para objetivo ${userData.goal} com ${userData.weekly_days} dias por semana. 
+    Responda APENAS o JSON no formato: 
+    {"name":"Treino", "duration_weeks":4, "methodology":"", "sessions":[], "trainer_notes":""}`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    
-    // Limpeza de Markdown
     const jsonString = text.replace(/```json|```/g, '').trim();
     return JSON.parse(jsonString);
   } catch (error: any) {
-    // ESTA LINHA É A MAIS IMPORTANTE:
-    console.error("DETALHE DO ERRO NO RENDER:", error?.message || error);
-    throw new Error("Erro na geração: " + (error?.message || "Desconhecido"));
+    console.error("DETALHE DO ERRO WORKOUT:", error?.message || error);
+    throw new Error("Falha no treino");
   }
 }
 
-// Repita a mesma lógica para a Nutrição
 export async function generateNutritionPlan(userData: any) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `Gere uma dieta JSON para objetivo ${userData.goal}. Responda apenas o JSON puro.`;
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    const prompt = `Gere um plano alimentar JSON para objetivo ${userData.goal} e peso ${userData.current_weight_kg}kg. 
+    Responda APENAS o JSON no formato: 
+    {"daily_calories":2000, "protein_g":150, "carbs_g":200, "fat_g":60, "water_ml":3000, "meals":[], "supplements":[], "nutritionist_notes":""}`;
+
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     const jsonString = text.replace(/```json|```/g, '').trim();
     return JSON.parse(jsonString);
   } catch (error: any) {
-    console.error("ERRO NUTRIÇÃO:", error?.message || error);
-    throw error;
+    console.error("DETALHE DO ERRO NUTRIÇÃO:", error?.message || error);
+    throw new Error("Falha na nutrição");
   }
 }
 

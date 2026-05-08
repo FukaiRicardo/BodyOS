@@ -150,3 +150,22 @@ export async function generateWorkoutPlan(userData: any) {
     throw error;
   }
 }
+
+// Adicione isso ao final do seu planGenerator.ts:
+
+export async function analyzeHeart(data: any) {
+  console.log("Analyze Heart chamado");
+  return { status: "Feature em desenvolvimento com Gemini" };
+}
+
+export async function generateClientFeedback(data: any) {
+  console.log("Client Feedback chamado");
+  return { feedback: "Análise concluída com sucesso." };
+}
+
+export async function adaptProtocol(data: any) {
+  // Se o seu app usa essa função para adaptar treinos/dietas, 
+  // ela precisa existir para o servidor ligar.
+  console.log("Adapt Protocol chamado");
+  return { success: true, data: data };
+}

@@ -10,18 +10,15 @@ import { z } from 'zod'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
-  analyzeReport,
-  generateClientFeedback,
-  adaptProtocol,
 } from './planGenerator'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
 
-// Segurança básica
-app.use(helmet({ contentSecurityPolicy: false }))
+// Função para dar um "respiro" entre chamadas da IA (evita 429 do Groq)
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-// CORS LIBERADO PARA TESTE (Aceita qualquer origem para o celular conectar)
+app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST'],
@@ -30,9 +27,10 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }))
 
+// Limite de requisições do servidor para evitar abusos
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30, // Aumentado para evitar bloqueios em testes
+  max: 50, 
   message: { error: 'Too many requests' },
   skip: (req) => req.path === '/health',
 })
@@ -69,19 +67,27 @@ app.get('/health', (_: Request, res: Response) => {
 
 app.post('/nutrition/generate', requireApiKey, async (req: Request, res: Response) => {
   try {
-    const result = await generateNutritionPlan(req.body)
+    const validatedData = UserProfileSchema.parse(req.body)
+    const result = await generateNutritionPlan(validatedData)
     res.json(result)
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to generate nutrition' })
+  } catch (error: any) {
+    console.error('Erro Nutrition:', error?.message)
+    const status = error?.status === 429 ? 429 : 500
+    res.status(status).json({ error: 'AI limit reached or service error' })
   }
 })
 
 app.post('/workout/generate', requireApiKey, async (req: Request, res: Response) => {
   try {
-    const result = await generateWorkoutPlan(req.body)
+    // Adiciona um pequeno delay para não bater o limite do Groq junto com a nutrição
+    await sleep(1500)
+    const validatedData = UserProfileSchema.parse(req.body)
+    const result = await generateWorkoutPlan(validatedData)
     res.json(result)
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to generate workout' })
+  } catch (error: any) {
+    console.error('Erro Workout:', error?.message)
+    const status = error?.status === 429 ? 429 : 500
+    res.status(status).json({ error: 'AI limit reached or service error' })
   }
 })
 

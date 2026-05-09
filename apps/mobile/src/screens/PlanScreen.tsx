@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as Localization from 'expo-localization' // <-- IMPORTADO AQUI
 import { RootStackParamList } from '../../App'
 import { useDatabase } from '../context/DatabaseContext'
 
@@ -26,7 +27,6 @@ export default function PlanScreen() {
   const { savePlan, loadLatestPlan } = useDatabase()
   const { t, i18n } = useTranslation()
 
-  // VARIÁVEIS DE ESTADO (A função generatePlan precisa estar aqui dentro para enxergá-las)
   const [loading, setLoading] = useState(false)
   const [loadingExisting, setLoadingExisting] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -60,13 +60,21 @@ export default function PlanScreen() {
     fetchExistingPlan()
   }, [])
 
-  // NOVA FUNÇÃO GENERATE PLAN
   async function generatePlan() {
     setLoading(true)
     setError('')
     
-    const currentLang = i18n.language?.split('-')[0].toLowerCase() || 'pt'
-    const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
+    // DETECÇÃO DE IDIOMA ULTRA CONFIÁVEL PARA APP INSTALADO
+    const locales = Localization.getLocales();
+    const systemLang = locales && locales.length > 0 ? locales[0].languageCode : 'en';
+    
+    // Se o sistema retornar algo nulo, tentamos o i18n como plano B
+    const currentLang = systemLang || i18n.language?.split('-')[0].toLowerCase() || 'pt';
+    
+    // Lista de idiomas suportados pelo seu prompt no Groq
+    const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en';
+
+    console.log("Idioma enviado ao servidor:", deviceLanguage);
 
     const bodyData = {
       goal: profile?.goal ?? 'muscle_gain',
@@ -76,12 +84,10 @@ export default function PlanScreen() {
       height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
       age: profile?.age ? Number(profile.age) : undefined,
       gender: profile?.gender,
-      language: deviceLanguage,
+      language: deviceLanguage, // Campo essencial para o Render traduzir
     }
 
     try {
-      console.log("Iniciando chamadas para o Render...")
-
       const [nutritionRaw, workoutRaw] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
           method: 'POST',
@@ -108,7 +114,7 @@ export default function PlanScreen() {
       const newPlan = {
         nutrition: nutritionData,
         workout: workoutData,
-        ai_model: nutritionRaw.ai_model ?? 'gemini',
+        ai_model: nutritionRaw.ai_model ?? 'groq',
       }
 
       setPlan(newPlan)
@@ -187,7 +193,6 @@ export default function PlanScreen() {
 
         {error ? <Text style={s.error}>{error}</Text> : null}
 
-        {/* ABA NUTRIÇÃO */}
         {plan && tab === 'nutrition' && plan.nutrition && (
           <View style={s.content}>
             <View style={s.macroRow}>
@@ -258,7 +263,6 @@ export default function PlanScreen() {
           </View>
         )}
 
-        {/* ABA TREINO */}
         {plan && tab === 'workout' && plan.workout && (
           <View style={s.content}>
             <View style={s.workoutHeader}>

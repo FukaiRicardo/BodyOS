@@ -16,6 +16,7 @@
     "dotenv": "^16.0.0",
     "expo": "~54.0.34",
     "expo-crypto": "^55.0.14",
+    "expo-localization": "~17.0.8",
     "openai": "^4.0.0"
   },
   "devDependencies": {

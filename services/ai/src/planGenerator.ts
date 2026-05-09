@@ -3,7 +3,6 @@ dotenv.config();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
-// Função base que faz a chamada para a API
 async function callGroq(prompt: string, language: string) {
   if (!GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY não configurada.");
@@ -28,7 +27,7 @@ async function callGroq(prompt: string, language: string) {
       messages: [
         { 
           role: "system", 
-          content: `You are a fitness expert. You MUST respond in ${fullLanguage}. All names, descriptions and notes must be in ${fullLanguage}. Keep JSON structure.` 
+          content: `You are a fitness expert. You MUST respond in ${fullLanguage}. All names, descriptions and notes must be in ${fullLanguage}. IMPORTANT: The JSON keys MUST remain in English as specified in the prompt.` 
         }, 
         { role: "user", content: prompt }
       ],
@@ -47,9 +46,8 @@ export async function generateWorkoutPlan(userData: any) {
   try {
     const lang = userData.language || 'pt';
     const prompt = `
-      Create a professional workout plan. Goal: ${userData.goal}.
-      CRITICAL: Write EVERYTHING in ${lang}.
-      Return ONLY this JSON structure with English keys:
+      Create a professional workout plan for goal: ${userData.goal}.
+      Return ONLY this JSON structure. Keep keys in English, translate values to ${lang}:
       {
         "name": "Plan Name",
         "duration_weeks": 4,
@@ -74,13 +72,16 @@ export async function generateWorkoutPlan(userData: any) {
 export async function generateNutritionPlan(userData: any) {
   try {
     const lang = userData.language || 'pt';
+    // AJUSTE: Chaves simplificadas para bater com o PlanScreen.tsx (calories, protein, carbs, fat)
     const prompt = `
-      Create a professional nutrition plan. Goal: ${userData.goal}.
-      CRITICAL: Write EVERYTHING in ${lang}.
-      Return ONLY this JSON structure with English keys:
+      Create a professional nutrition plan for goal: ${userData.goal}.
+      Return ONLY this JSON structure. Keep keys in English, translate values to ${lang}:
       {
-        "daily_calories": 2000,
-        "protein_g": 160, "carbs_g": 220, "fat_g": 70, "water_ml": 3500,
+        "calories": 2000,
+        "protein": 160, 
+        "carbs": 220, 
+        "fat": 70, 
+        "water_ml": 3500,
         "meals": [{
           "name": "Meal Name",
           "meal_type": "breakfast",

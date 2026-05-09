@@ -1,15 +1,14 @@
 import dotenv from 'dotenv';
-
 dotenv.config();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
+// Função base que faz a chamada para a API
 async function callGroq(prompt: string, language: string) {
   if (!GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY não configurada.");
   }
 
-  // Mapeia códigos curtos para nomes completos para facilitar a vida da IA
   const languageMap: { [key: string]: string } = {
     'pt': 'Portuguese (Brazil)',
     'es': 'Spanish',
@@ -29,7 +28,7 @@ async function callGroq(prompt: string, language: string) {
       messages: [
         { 
           role: "system", 
-          content: `You are a fitness expert. You MUST respond in ${fullLanguage}. All exercises and foods must be in ${fullLanguage}. Keep JSON structure.` 
+          content: `You are a fitness expert. You MUST respond in ${fullLanguage}. All names, descriptions and notes must be in ${fullLanguage}. Keep JSON structure.` 
         }, 
         { role: "user", content: prompt }
       ],
@@ -46,16 +45,11 @@ async function callGroq(prompt: string, language: string) {
 
 export async function generateWorkoutPlan(userData: any) {
   try {
-    // Se o app enviado não mandar language, tentamos pegar de outro campo ou usamos o padrão
-    const lang = userData.language || 'Portuguese';
-
+    const lang = userData.language || 'pt';
     const prompt = `
-      Create a REAL workout plan.
-      TARGET LANGUAGE: ${lang}
-      Goal: ${userData.goal}
-      
+      Create a professional workout plan. Goal: ${userData.goal}.
       CRITICAL: Write EVERYTHING in ${lang}.
-      Return ONLY this JSON:
+      Return ONLY this JSON structure with English keys:
       {
         "name": "Plan Name",
         "duration_weeks": 4,
@@ -64,7 +58,8 @@ export async function generateWorkoutPlan(userData: any) {
           "day_of_week": 1,
           "name": "Session Name",
           "focus": "Focus",
-          "exercises": [{ "name": "Exercise Name", "sets": 3, "reps": "12", "technique_tip": "Tip" }]
+          "estimated_minutes": 60,
+          "exercises": [{ "name": "Exercise Name", "sets": 3, "reps": "12", "rest_seconds": 60, "technique_tip": "Tip" }]
         }],
         "trainer_notes": "Notes"
       }`;
@@ -78,15 +73,11 @@ export async function generateWorkoutPlan(userData: any) {
 
 export async function generateNutritionPlan(userData: any) {
   try {
-    const lang = userData.language || 'Portuguese';
-
+    const lang = userData.language || 'pt';
     const prompt = `
-      Create a REAL nutrition plan.
-      TARGET LANGUAGE: ${lang}
-      Goal: ${userData.goal}
-
+      Create a professional nutrition plan. Goal: ${userData.goal}.
       CRITICAL: Write EVERYTHING in ${lang}.
-      Return ONLY this JSON:
+      Return ONLY this JSON structure with English keys:
       {
         "daily_calories": 2000,
         "protein_g": 160, "carbs_g": 220, "fat_g": 70, "water_ml": 3500,
@@ -94,10 +85,11 @@ export async function generateNutritionPlan(userData: any) {
           "name": "Meal Name",
           "meal_type": "breakfast",
           "time_suggestion": "08:00",
+          "total_calories": 400,
           "foods": [{ "name": "Food Name", "quantity_g": 100, "calories": 150 }]
         }],
         "supplements": [{ "name": "Supplement", "dose": "5g", "timing": "Post-workout" }],
-        "nutritionist_notes": "Specific advice"
+        "nutritionist_notes": "Notes"
       }`;
 
     const content = await callGroq(prompt, lang);

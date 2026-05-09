@@ -3,14 +3,13 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import * as Localization from 'expo-localization' // <-- IMPORTADO AQUI
+import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../App'
 import { useDatabase } from '../context/DatabaseContext'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
-// URL DO RENDER FIXA
 const AI_SERVICE_URL = 'https://bodyos-ai-service.onrender.com'
 
 const mealIcon: Record<string, string> = {
@@ -52,7 +51,7 @@ export default function PlanScreen() {
           })
         }
       } catch (e) {
-        console.error("Erro ao carregar plano:", e)
+        console.error("Erro ao carregar plano local:", e)
       } finally {
         setLoadingExisting(false)
       }
@@ -64,17 +63,10 @@ export default function PlanScreen() {
     setLoading(true)
     setError('')
     
-    // DETECÇÃO DE IDIOMA ULTRA CONFIÁVEL PARA APP INSTALADO
+    // Detecção de idioma
     const locales = Localization.getLocales();
-    const systemLang = locales && locales.length > 0 ? locales[0].languageCode : 'en';
-    
-    // Se o sistema retornar algo nulo, tentamos o i18n como plano B
-    const currentLang = systemLang || i18n.language?.split('-')[0].toLowerCase() || 'pt';
-    
-    // Lista de idiomas suportados pelo seu prompt no Groq
+    const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt';
     const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en';
-
-    console.log("Idioma enviado ao servidor:", deviceLanguage);
 
     const bodyData = {
       goal: profile?.goal ?? 'muscle_gain',
@@ -84,37 +76,43 @@ export default function PlanScreen() {
       height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
       age: profile?.age ? Number(profile.age) : undefined,
       gender: profile?.gender,
-      language: deviceLanguage, // Campo essencial para o Render traduzir
+      language: deviceLanguage,
+    }
+
+    const headers = { 
+      'Content-Type': 'application/json',
+      'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
     }
 
     try {
-      const [nutritionRaw, workoutRaw] = await Promise.all([
-        fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
-          },
-          body: JSON.stringify(bodyData),
-        }).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(`Erro API: ${t}`) })),
-  
-        fetch(`${AI_SERVICE_URL}/workout/generate`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
-          },
-          body: JSON.stringify(bodyData),
-        }).then(r => r.ok ? r.json() : r.text().then(t => { throw new Error(`Erro API: ${t}`) })),
-      ])
+      // 1. Gera Dieta
+      const dietRes = await fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(bodyData),
+      });
+      if (!dietRes.ok) throw new Error("Erro na dieta");
+      const nutritionRaw = await dietRes.json();
 
-      const nutritionData = nutritionRaw.data ?? nutritionRaw
-      const workoutData = workoutRaw.data ?? workoutRaw
+      // 2. Pequena pausa de 1.2s para evitar Rate Limit do Groq
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      // 3. Gera Treino
+      const workoutRes = await fetch(`${AI_SERVICE_URL}/workout/generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(bodyData),
+      });
+      if (!workoutRes.ok) throw new Error("Erro no treino");
+      const workoutRaw = await workoutRes.json();
+
+      const nutritionData = nutritionRaw.data ?? nutritionRaw;
+      const workoutData = workoutRaw.data ?? workoutRaw;
 
       const newPlan = {
         nutrition: nutritionData,
         workout: workoutData,
-        ai_model: nutritionRaw.ai_model ?? 'groq',
+        ai_model: 'groq',
       }
 
       setPlan(newPlan)
@@ -123,8 +121,8 @@ export default function PlanScreen() {
       setSaving(false)
 
     } catch (e) {
-      console.error("ERRO NO PLANO:", e)
-      setError(t('plan.generateError') || "Erro ao gerar plano.")
+      console.error("ERRO NA GERAÇÃO:", e)
+      setError(t('plan.generateError') || "Erro ao conectar com a IA. Tente novamente.")
     } finally {
       setLoading(false)
     }
@@ -230,7 +228,7 @@ export default function PlanScreen() {
                   <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '🍴'}</Text>
                   <View style={s.mealInfo}>
                     <Text style={s.mealName}>{meal.name}</Text>
-                    <Text style={s.mealTime}>{meal.time_suggestion} · {meal.total_calories} kcal</Text>
+                    <Text style={s.mealTime}>{meal.time_suggestion} · {meal.total_calories || 0} kcal</Text>
                   </View>
                 </View>
                 {meal.foods?.map((food: any, j: number) => (
@@ -278,13 +276,13 @@ export default function PlanScreen() {
                   </View>
                   <View>
                     <Text style={s.sessionName}>{session.name}</Text>
-                    <Text style={s.sessionMeta}>{session.focus} · {session.estimated_minutes} {t('plan.min')}</Text>
+                    <Text style={s.sessionMeta}>{session.focus} · {session.estimated_minutes || 60} {t('plan.min')}</Text>
                   </View>
                 </View>
                 {session.exercises?.map((ex: any, j: number) => (
                   <View key={j} style={s.exerciseRow}>
                     <Text style={s.exerciseName}>{ex.name}</Text>
-                    <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} · {ex.rest_seconds}s {t('plan.rest')}</Text>
+                    <Text style={s.exerciseDetail}>{ex.sets}x{ex.reps} · {ex.rest_seconds || 60}s {t('plan.rest')}</Text>
                     {ex.technique_tip ? <Text style={s.exerciseTip}>💡 {ex.technique_tip}</Text> : null}
                   </View>
                 ))}

@@ -72,7 +72,6 @@ export async function generateWorkoutPlan(userData: any) {
 export async function generateNutritionPlan(userData: any) {
   try {
     const lang = userData.language || 'pt';
-    // AJUSTE: Chaves simplificadas para bater com o PlanScreen.tsx (calories, protein, carbs, fat)
     const prompt = `
       Create a professional nutrition plan for goal: ${userData.goal}.
       Return ONLY this JSON structure. Keep keys in English, translate values to ${lang}:
@@ -100,6 +99,51 @@ export async function generateNutritionPlan(userData: any) {
   }
 }
 
-export async function analyzeReport(data: any) { return { status: 'success' }; }
-export async function generateClientFeedback(data: any) { return { feedback: 'Keep it up!' }; }
-export async function adaptProtocol(data: any) { return { status: 'adapted' }; }
+export async function analyzeReport(reportData: any) {
+  try {
+    const lang = reportData.language || 'pt';
+    const prompt = `
+      Analyze this daily fitness report: ${JSON.stringify(reportData)}.
+      Return ONLY this JSON structure in English keys, values in ${lang}:
+      {
+        "score": 85,
+        "highlights": ["Strong workout", "Good hydration"],
+        "attention_points": ["Sleep was low"],
+        "tomorrow_tips": ["Rest more tonight"]
+      }`;
+
+    const content = await callGroq(prompt, lang);
+    return JSON.parse(content);
+  } catch (error: any) {
+    console.error("Erro analyzeReport:", error);
+    throw error;
+  }
+}
+
+export async function adaptProtocol(userData: any) {
+  try {
+    const lang = userData.language || 'pt';
+    const prompt = `
+      Adapt the current fitness protocol based on user history and progress.
+      Goal: ${userData.goal}.
+      User Data: ${JSON.stringify(userData)}.
+      Return ONLY this JSON structure in English keys, values in ${lang}:
+      {
+        "adjustment_reason": "Reason for adapting the plan",
+        "changes_made": "Specific changes made to diet/workout",
+        "new_calories": 2100,
+        "recovery_status": "Status of recovery",
+        "new_workout_focus": "New focus"
+      }`;
+
+    const content = await callGroq(prompt, lang);
+    return JSON.parse(content);
+  } catch (error: any) {
+    console.error("Erro adaptProtocol:", error);
+    throw error;
+  }
+}
+
+export async function generateClientFeedback(data: any) { 
+    return { feedback: 'Keep it up! Your consistency is key to your progress.' }; 
+}

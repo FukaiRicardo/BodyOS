@@ -63,7 +63,7 @@ export default function PlanScreen() {
     setLoading(true)
     setError('')
     
-    // Detecção de idioma
+    // Detecção de idioma robusta
     const locales = Localization.getLocales();
     const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt';
     const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en';
@@ -94,7 +94,7 @@ export default function PlanScreen() {
       if (!dietRes.ok) throw new Error("Erro na dieta");
       const nutritionRaw = await dietRes.json();
 
-      // 2. Pequena pausa de 1.2s para evitar Rate Limit do Groq
+      // 2. Pausa para evitar Rate Limit
       await new Promise(resolve => setTimeout(resolve, 1200));
 
       // 3. Gera Treino
@@ -195,10 +195,10 @@ export default function PlanScreen() {
           <View style={s.content}>
             <View style={s.macroRow}>
               {[
-                { label: t('plan.calories'), value: plan.nutrition.daily_calories, unit: 'kcal', color: '#00FF87' },
-                { label: t('plan.protein'), value: plan.nutrition.protein_g, unit: 'g', color: '#60A5FA' },
-                { label: t('plan.carbs'), value: plan.nutrition.carbs_g, unit: 'g', color: '#F59E0B' },
-                { label: t('plan.fat'), value: plan.nutrition.fat_g, unit: 'g', color: '#F87171' },
+                { label: t('plan.calories'), value: plan.nutrition.calories || plan.nutrition.daily_calories || 0, unit: 'kcal', color: '#00FF87' },
+                { label: t('plan.protein'), value: plan.nutrition.protein || plan.nutrition.protein_g || 0, unit: 'g', color: '#60A5FA' },
+                { label: t('plan.carbs'), value: plan.nutrition.carbs || plan.nutrition.carbs_g || 0, unit: 'g', color: '#F59E0B' },
+                { label: t('plan.fat'), value: plan.nutrition.fat || plan.nutrition.fat_g || 0, unit: 'g', color: '#F87171' },
               ].map((m, i) => (
                 <View key={i} style={s.macroCard}>
                   <Text style={[s.macroValue, { color: m.color }]}>{m.value}</Text>
@@ -234,7 +234,7 @@ export default function PlanScreen() {
                 {meal.foods?.map((food: any, j: number) => (
                   <View key={j} style={s.foodRow}>
                     <Text style={s.foodName}>{food.name}</Text>
-                    <Text style={s.foodDetail}>{food.quantity_g}g · {food.calories} kcal</Text>
+                    <Text style={s.foodDetail}>{food.quantity_g || food.quantity}g · {food.calories} kcal</Text>
                   </View>
                 ))}
               </View>
@@ -252,10 +252,10 @@ export default function PlanScreen() {
               </>
             )}
 
-            {plan.nutrition.nutritionist_notes && (
+            {(plan.nutrition.nutritionist_notes || plan.nutrition.notes) && (
               <View style={s.notesCard}>
                 <Text style={s.notesTitle}>📋 {t('plan.nutritionistNotes')}</Text>
-                <Text style={s.notesText}>{plan.nutrition.nutritionist_notes}</Text>
+                <Text style={s.notesText}>{plan.nutrition.nutritionist_notes || plan.nutrition.notes}</Text>
               </View>
             )}
           </View>
@@ -289,10 +289,10 @@ export default function PlanScreen() {
               </View>
             ))}
 
-            {plan.workout.trainer_notes && (
+            {(plan.workout.trainer_notes || plan.workout.notes) && (
               <View style={s.notesCard}>
                 <Text style={s.notesTitle}>📋 {t('plan.trainerNotes')}</Text>
-                <Text style={s.notesText}>{plan.workout.trainer_notes}</Text>
+                <Text style={s.notesText}>{plan.workout.trainer_notes || plan.workout.notes}</Text>
               </View>
             )}
           </View>
@@ -332,7 +332,7 @@ const s = StyleSheet.create({
   savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
   macroRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 8, alignItems: 'center' },
+  macroCard: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 8, alignItems: 'center', minHeight: 70 },
   macroValue: { fontSize: 16, fontWeight: '800' },
   macroUnit: { fontSize: 9, color: '#A0A0B0' },
   macroLabel: { fontSize: 9, color: '#A0A0B0', marginTop: 2, textAlign: 'center' },

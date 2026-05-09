@@ -10,12 +10,13 @@ import { z } from 'zod'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
+  adaptProtocol, // Adicionado
+  analyzeReport   // Adicionado
 } from './planGenerator'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
 
-// Função para dar um "respiro" entre chamadas da IA (evita 429 do Groq)
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 app.use(helmet({ contentSecurityPolicy: false }))
@@ -27,7 +28,6 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }))
 
-// Limite de requisições do servidor para evitar abusos
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50, 
@@ -59,6 +59,7 @@ const UserProfileSchema = z.object({
   age: z.number().optional(),
   gender: z.string().optional(),
   language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
+  history: z.any().optional(), // Adicionado para suportar adaptação
 })
 
 app.get('/health', (_: Request, res: Response) => {
@@ -72,22 +73,41 @@ app.post('/nutrition/generate', requireApiKey, async (req: Request, res: Respons
     res.json(result)
   } catch (error: any) {
     console.error('Erro Nutrition:', error?.message)
-    const status = error?.status === 429 ? 429 : 500
-    res.status(status).json({ error: 'AI limit reached or service error' })
+    res.status(500).json({ error: 'AI service error' })
   }
 })
 
 app.post('/workout/generate', requireApiKey, async (req: Request, res: Response) => {
   try {
-    // Adiciona um pequeno delay para não bater o limite do Groq junto com a nutrição
-    await sleep(1500)
+    await sleep(1000)
     const validatedData = UserProfileSchema.parse(req.body)
     const result = await generateWorkoutPlan(validatedData)
     res.json(result)
   } catch (error: any) {
     console.error('Erro Workout:', error?.message)
-    const status = error?.status === 429 ? 429 : 500
-    res.status(status).json({ error: 'AI limit reached or service error' })
+    res.status(500).json({ error: 'AI service error' })
+  }
+})
+
+// --- NOVAS ROTAS ADICIONADAS ABAIXO ---
+
+app.post('/protocol/adapt', requireApiKey, async (req: Request, res: Response) => {
+  try {
+    const result = await adaptProtocol(req.body)
+    res.json(result)
+  } catch (error: any) {
+    console.error('Erro Adapt:', error?.message)
+    res.status(500).json({ error: 'Erro ao adaptar protocolo' })
+  }
+})
+
+app.post('/report/analyze', requireApiKey, async (req: Request, res: Response) => {
+  try {
+    const result = await analyzeReport(req.body)
+    res.json(result)
+  } catch (error: any) {
+    console.error('Erro Report:', error?.message)
+    res.status(500).json({ error: 'Erro ao analisar relatório' })
   }
 })
 

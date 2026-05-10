@@ -83,21 +83,56 @@ export default function ReportScreen() {
 
       console.log('AI_SERVICE_URL =>', AI_SERVICE_URL)
 
-const [analysis, clientFeedback] = await Promise.all([
-        fetch(`${AI_SERVICE_URL}/report/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' },
-          body: JSON.stringify(report),
-        }).then(r => r.json()),
-        fetch(`${AI_SERVICE_URL}/feedback/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' },
-          body: JSON.stringify(report),
-        }).then(r => r.json()),
-      ])
+const analysisResponse = await fetch(`${AI_SERVICE_URL}/report/analyze`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+  },
+  body: JSON.stringify(report),
+})
 
-      const result = { analysis: analysis.data, clientFeedback: clientFeedback.data }
-      setFeedback(result)
+const analysisText = await analysisResponse.text()
+
+console.log('====================')
+console.log('ANALYSIS RESPONSE:')
+console.log(analysisText)
+console.log('====================')
+
+if (!analysisResponse.ok) {
+  throw new Error(`Analyze error: ${analysisText}`)
+}
+
+const analysis = JSON.parse(analysisText)
+
+const feedbackResponse = await fetch(`${AI_SERVICE_URL}/feedback/generate`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '',
+  },
+  body: JSON.stringify(report),
+})
+
+const feedbackText = await feedbackResponse.text()
+
+console.log('====================')
+console.log('FEEDBACK RESPONSE:')
+console.log(feedbackText)
+console.log('====================')
+
+if (!feedbackResponse.ok) {
+  throw new Error(`Feedback error: ${feedbackText}`)
+}
+
+const clientFeedback = JSON.parse(feedbackText)
+
+const result = {
+  analysis,
+  clientFeedback,
+}
+
+setFeedback(result)
 
       await saveReport({
         date: today,

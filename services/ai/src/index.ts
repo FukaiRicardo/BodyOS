@@ -10,8 +10,9 @@ import { z } from 'zod'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
-  adaptProtocol, // Adicionado
-  analyzeReport   // Adicionado
+  adaptProtocol,
+  analyzeReport,
+  generateClientFeedback
 } from './planGenerator'
 
 const app = express()
@@ -113,13 +114,16 @@ app.post('/report/analyze', requireApiKey, async (req: Request, res: Response) =
 
 app.post('/feedback/generate', requireApiKey, async (req: Request, res: Response) => {
   try {
+    const report = await analyzeReport(req.body)
 
-    res.json({
-      feedback: 'Excelente consistência. Continue seguindo o protocolo.'
+    const feedback = await generateClientFeedback({
+      ...req.body,
+      analysis: report
     })
 
-  } catch (error: any) {
+    res.json(feedback)
 
+  } catch (error: any) {
     console.error('Erro Feedback:', error?.message)
 
     res.status(500).json({
@@ -127,7 +131,6 @@ app.post('/feedback/generate', requireApiKey, async (req: Request, res: Response
     })
   }
 })
-
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`AI service rodando na porta ${PORT}`)
 })

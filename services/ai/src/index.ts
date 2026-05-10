@@ -111,6 +111,36 @@ app.post('/report/analyze', requireApiKey, async (req: Request, res: Response) =
   }
 })
 
+app.post('/feedback/generate', requireApiKey, async (req: Request, res: Response) => {
+  try {
+
+    res.json({
+      feedback: 'Excelente consistência. Continue seguindo o protocolo.'
+    })
+
+  } catch (error: any) {
+
+    console.error('Erro Feedback:', error?.message)
+
+    res.status(500).json({
+      error: 'Erro ao gerar feedback'
+    })
+  }
+})
+
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`AI service rodando na porta ${PORT}`)
+})
+
+app.get('/debug/routes', (_req, res) => {
+  res.json({
+    routes: [
+      '/health',
+      '/nutrition/generate',
+      '/workout/generate',
+      '/protocol/adapt',
+      '/report/analyze',
+      '/feedback/generate',
+    ],
+  })
 })

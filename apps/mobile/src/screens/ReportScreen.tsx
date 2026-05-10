@@ -81,7 +81,9 @@ export default function ReportScreen() {
         language: i18n.language,
       }
 
-      const [analysis, clientFeedback] = await Promise.all([
+      console.log('AI_SERVICE_URL =>', AI_SERVICE_URL)
+
+const [analysis, clientFeedback] = await Promise.all([
         fetch(`${AI_SERVICE_URL}/report/analyze`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' },
@@ -112,7 +114,14 @@ export default function ReportScreen() {
       })
 
     } catch (e) {
+
+      console.log('====================')
+      console.log('ERRO REPORT:')
+      console.log(e)
+      console.log('====================')
+
       setError(t('report.submitError'))
+
     } finally {
       setLoading(false)
     }

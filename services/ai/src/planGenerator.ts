@@ -132,17 +132,26 @@ Return ONLY valid JSON:
 export async function analyzeReport(reportData: any) {
   const lang = reportData.language || 'pt';
 
-  const prompt = `
-Analyze this fitness report rigorously: ${JSON.stringify(reportData)}.
+const prompt = `
+Analyze this fitness report rigorously:
 
-Be strict and objective.
+${JSON.stringify(reportData)}
+
+IMPORTANT METRICS:
+- Water intake is in milliliters (water_intake_ml)
+- Recommended baseline: 2500ml/day (adjust based on goal and activity)
+
+RULES:
+- If water intake < 2000ml → mention dehydration risk
+- If water intake > 3000ml → consider good hydration
+- Water impacts energy, recovery, and performance
 
 Return ONLY valid JSON:
 {
   "score": 85,
-  "highlights": ["Strong workout", "Good hydration"],
-  "attention_points": ["Sleep was low"],
-  "tomorrow_tips": ["Rest more tonight"]
+  "highlights": [],
+  "attention_points": [],
+  "tomorrow_tips": []
 }
 `;
 

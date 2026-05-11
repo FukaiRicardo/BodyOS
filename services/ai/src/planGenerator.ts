@@ -50,6 +50,19 @@ RULES:
   return JSON.parse(data.choices[0].message.content);
 }
 
+/**
+ * 💧 HYDRATION SCORE (novo)
+ */
+function calculateHydrationScore(water_ml: number = 0) {
+  if (water_ml < 500) return 0;
+  if (water_ml < 1000) return 20;
+  if (water_ml < 1500) return 40;
+  if (water_ml < 2000) return 60;
+  if (water_ml < 2500) return 75;
+  if (water_ml < 3000) return 90;
+  return 100;
+}
+
 export async function generateWorkoutPlan(userData: any) {
   const lang = userData.language || 'pt';
 
@@ -82,8 +95,7 @@ Return ONLY valid JSON:
 }
 `;
 
-  const result = await callGroq(prompt, lang);
-  return result;
+  return await callGroq(prompt, lang);
 }
 
 export async function generateNutritionPlan(userData: any) {
@@ -125,38 +137,47 @@ Return ONLY valid JSON:
 }
 `;
 
-  const result = await callGroq(prompt, lang);
-  return result;
+  return await callGroq(prompt, lang);
 }
 
+/**
+ * 🔥 ANALYZE REPORT COM HYDRATION SCORE
+ */
 export async function analyzeReport(reportData: any) {
   const lang = reportData.language || 'pt';
 
-const prompt = `
+  const hydrationScore = calculateHydrationScore(
+    reportData.water_intake_ml || 0
+  );
+
+  const prompt = `
 Analyze this fitness report rigorously:
 
 ${JSON.stringify(reportData)}
 
+HYDRATION SCORE (pre-calculated): ${hydrationScore}/100
+
 IMPORTANT METRICS:
 - Water intake is in milliliters (water_intake_ml)
-- Recommended baseline: 2500ml/day (adjust based on goal and activity)
+- Recommended baseline: 2500ml/day
 
-RULES:
-- If water intake < 2000ml → mention dehydration risk
-- If water intake > 3000ml → consider good hydration
-- Water impacts energy, recovery, and performance
+STRICT RULES:
+- Hydration MUST affect score
+- If hydration < 2000ml → mention dehydration risk
+- If hydration 2000–3000ml → mention adequate hydration
+- If hydration > 3000ml → mention excellent hydration
 
 Return ONLY valid JSON:
 {
   "score": 85,
+  "hydration_score": ${hydrationScore},
   "highlights": [],
   "attention_points": [],
   "tomorrow_tips": []
 }
 `;
 
-  const result = await callGroq(prompt, lang);
-  return result;
+  return await callGroq(prompt, lang);
 }
 
 export async function adaptProtocol(userData: any) {
@@ -168,8 +189,6 @@ Adapt the fitness protocol based on real performance and history.
 Goal: ${userData.goal}
 Data: ${JSON.stringify(userData)}
 
-Be strict. Do NOT be overly optimistic.
-
 Return ONLY valid JSON:
 {
   "adjustment_reason": "Reason for adapting the plan",
@@ -180,12 +199,11 @@ Return ONLY valid JSON:
 }
 `;
 
-  const result = await callGroq(prompt, lang);
-  return result;
+  return await callGroq(prompt, lang);
 }
 
 /**
- * 🔥 NOVO: Feedback REAL de coach (com rigor)
+ * 🔥 FEEDBACK COACH
  */
 export async function generateClientFeedback(data: any) {
   const lang = data.language || 'pt';
@@ -193,17 +211,14 @@ export async function generateClientFeedback(data: any) {
   const prompt = `
 You are a strict elite fitness coach.
 
-You must evaluate this analysis and give REAL feedback.
-
-RULES:
-- Be honest, not always positive
-- If user performed badly, call it out clearly
-- If user is inconsistent, mention it
-- Only praise when deserved
-- Avoid generic phrases like "keep it up"
-
 ANALYSIS:
 ${JSON.stringify(data.analysis)}
+
+RULES:
+- Be honest and direct
+- Call out bad behavior clearly
+- Only praise when deserved
+- Avoid generic motivational phrases
 
 Return ONLY valid JSON:
 {
@@ -215,6 +230,5 @@ Return ONLY valid JSON:
 }
 `;
 
-  const result = await callGroq(prompt, lang);
-  return result;
+  return await callGroq(prompt, lang);
 }

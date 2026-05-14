@@ -746,43 +746,58 @@ const s = StyleSheet.create({
   },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 24,
-  },
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 24,
+  paddingTop: 10,
+  paddingBottom: 24,
+},
 
   back: {
-    color: '#00FF87',
-    fontSize: 16,
-  },
+  color: '#00FF87',
+  fontSize: 24,
+  fontWeight: '700',
+},
 
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
+  fontSize: 30,
+  fontWeight: '800',
+  color: '#FFFFFF',
+  letterSpacing: -1,
+},
   scroll: {
     flex: 1,
   },
 
-  form: {
-    padding: 24,
-    gap: 8,
-  },
+form: {
+  padding: 22,
+  gap: 4,
+  paddingBottom: 120,
+},
 
-  section: {
-    marginBottom: 24,
-    gap: 12,
-  },
+section: {
+  marginBottom: 24,
+  gap: 14,
+  backgroundColor: '#121826',
+  borderRadius: 26,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.04)',
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.25,
+  shadowRadius: 20,
+  elevation: 8,
+},
 
+sectionTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#FFFFFF',
+  marginBottom: 2,
+},
   toggleRow: {
     flexDirection: 'row',
     gap: 12,
@@ -821,35 +836,45 @@ const s = StyleSheet.create({
     color: '#F87171',
   },
 
-  textArea: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 12,
-    padding: 16,
-    color: '#FFFFFF',
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
+ textArea: {
+  backgroundColor: '#0F172A',
+  borderRadius: 18,
+  padding: 16,
+  color: '#FFFFFF',
+  fontSize: 14,
+  minHeight: 90,
+  textAlignVertical: 'top',
+
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+},
 
   energyRow: {
     flexDirection: 'row',
     gap: 8,
   },
 
-  energyBtn: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
+ energyBtn: {
+  flex: 1,
+  backgroundColor: '#151B2D',
+  borderRadius: 16,
+  paddingVertical: 18,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.04)',
+  minHeight: 72,
+},
 
   energyBtnActive: {
-    borderColor: '#00FF87',
-    backgroundColor: '#0D2E1A',
-  },
+  borderColor: '#00FF87',
+  backgroundColor: 'rgba(0,255,135,0.10)',
+
+  shadowColor: '#00FF87',
+  shadowOpacity: 0.18,
+  shadowRadius: 8,
+  elevation: 3,
+},
 
   energyNum: {
     fontSize: 18,
@@ -876,30 +901,38 @@ const s = StyleSheet.create({
     gap: 8,
   },
 
-  moodBtn: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
+ moodBtn: {
+  flex: 1,
+  backgroundColor: '#151B2D',
+  borderRadius: 18,
+  paddingVertical: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.04)',
+  minHeight: 96,
+},
 
   moodBtnActive: {
-    borderColor: '#00FF87',
-    backgroundColor: '#0D2E1A',
-  },
+  borderColor: '#00FF87',
+  backgroundColor: 'rgba(0,255,135,0.10)',
+
+  shadowColor: '#00FF87',
+  shadowOpacity: 0.15,
+  shadowRadius: 10,
+  elevation: 3,
+},
 
   moodEmoji: {
-    fontSize: 22,
+    fontSize: 28,
   },
 
-  moodLabel: {
-    fontSize: 10,
-    color: '#A0A0B0',
-  },
+ moodLabel: {
+  fontSize: 12,
+  color: '#A0A0B0',
+  fontWeight: '600',
+},
 
   moodLabelActive: {
     color: '#00FF87',
@@ -921,14 +954,15 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
 
-  input: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 12,
-    padding: 14,
-    color: '#FFFFFF',
-    fontSize: 15,
-  },
-
+ input: {
+  backgroundColor: '#0F172A',
+  borderRadius: 18,
+  padding: 16,
+  color: '#FFFFFF',
+  fontSize: 15,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+},
   adherenceValue: {
     color: '#00FF87',
   },
@@ -949,9 +983,14 @@ const s = StyleSheet.create({
   },
 
   adherenceBtnActive: {
-    borderColor: '#00FF87',
-    backgroundColor: '#0D2E1A',
-  },
+  borderColor: '#00FF87',
+  backgroundColor: 'rgba(0,255,135,0.08)',
+
+  shadowColor: '#00FF87',
+  shadowOpacity: 0.12,
+  shadowRadius: 6,
+  elevation: 2,
+},
 
   adherenceBtnText: {
     color: '#A0A0B0',
@@ -1032,12 +1071,14 @@ const s = StyleSheet.create({
     lineHeight: 22,
   },
 
-  card: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
+ card: {
+  backgroundColor: '#111827',
+  borderRadius: 18,
+  padding: 18,
+  gap: 10,
+  borderWidth: 1,
+  borderColor: '#1F2937',
+},
 
   cardWarning: {
     borderLeftWidth: 3,
@@ -1096,16 +1137,23 @@ const s = StyleSheet.create({
     padding: 24,
   },
 
-  submitBtn: {
-    backgroundColor: '#00FF87',
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
+ submitBtn: {
+  backgroundColor: '#00FF87',
+  paddingVertical: 20,
+  borderRadius: 24,
+  alignItems: 'center',
+
+  shadowColor: '#00FF87',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.22,
+  shadowRadius: 18,
+  elevation: 10,
+},
 
   submitBtnText: {
-    color: '#0A0A0F',
-    fontSize: 17,
-    fontWeight: '700',
-  },
+  color: '#04110A',
+  fontSize: 18,
+  fontWeight: '800',
+  letterSpacing: -0.3,
+},
 })

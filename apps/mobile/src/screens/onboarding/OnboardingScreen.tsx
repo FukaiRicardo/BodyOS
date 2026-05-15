@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { RootStackParamList } from '../../App'
-import { useDatabase } from '../context/DatabaseContext'
+import { RootStackParamList } from '../../../App'
+import { useDatabase } from '../../context/DatabaseContext'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 

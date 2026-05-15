@@ -7,13 +7,15 @@ import { View, ActivityIndicator } from 'react-native'
 import { AuthProvider, useAuth } from './src/context/AuthContext'
 import { DatabaseProvider, useDatabase } from './src/context/DatabaseContext'
 
-import LoginScreen from './src/screens/LoginScreen'
-import RegisterScreen from './src/screens/RegisterScreen'
-import OnboardingScreen from './src/screens/OnboardingScreen'
-import HomeScreen from './src/screens/HomeScreen'
-import PlanScreen from './src/screens/PlanScreen'
-import ReportScreen from './src/screens/ReportScreen'
-import ProgressScreen from './src/screens/ProgressScreen'
+import LoginScreen from './src/screens/auth/LoginScreen'
+import RegisterScreen from './src/screens/auth/RegisterScreen'
+
+import OnboardingScreen from './src/screens/onboarding/OnboardingScreen'
+
+import HomeScreen from './src/screens/app/HomeScreen'
+import PlanScreen from './src/screens/app/PlanScreen'
+import ProgressScreen from './src/screens/app/ProgressScreen'
+import ReportScreen from './src/screens/app/ReportScreen'
 
 export type UserProfile = {
   goal: string

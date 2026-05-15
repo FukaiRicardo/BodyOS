@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LineChart, BarChart } from 'react-native-chart-kit'
-import { RootStackParamList } from '../../App'
-import { useDatabase } from '../context/DatabaseContext'
-import { Report } from '../lib/supabase'
-
+import { RootStackParamList } from '../../../App'
+import { useDatabase } from '../../context/DatabaseContext'
+import { Report } from '../../lib/supabase'
 type Route = RouteProp<RootStackParamList, 'Progress'>
 
 const SCREEN_WIDTH = Dimensions.get('window').width - 48

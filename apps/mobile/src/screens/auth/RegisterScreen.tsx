@@ -6,8 +6,8 @@ import {
 } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { RootStackParamList } from '../../App'
-import { useAuth } from '../context/AuthContext'
+import { RootStackParamList } from '../../../App'
+import { useAuth } from '../../context/AuthContext'
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>

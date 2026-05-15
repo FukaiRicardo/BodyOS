@@ -17,10 +17,10 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { RootStackParamList } from '../../App'
-import { useAuth } from '../context/AuthContext'
-import { useDatabase } from '../context/DatabaseContext'
-import { Report } from '../lib/supabase'
+import { RootStackParamList } from '../../../App'
+import { useAuth } from '../../context/AuthContext'
+import { useDatabase } from '../../context/DatabaseContext'
+import { Report } from '../../lib/supabase'
 
 type Route = RouteProp<RootStackParamList, 'Home'>
 

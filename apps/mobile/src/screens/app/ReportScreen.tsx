@@ -1,9 +1,11 @@
 // ReportScreen com i18n
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,8 +14,8 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { RootStackParamList } from '../../App'
-import { useDatabase } from '../context/DatabaseContext'
+import { RootStackParamList } from '../../../App'
+import { useDatabase } from '../../context/DatabaseContext'
 
 type Route = RouteProp<RootStackParamList, 'Report'>
 
@@ -35,13 +37,13 @@ export default function ReportScreen() {
   const profile = route.params?.profile
   const { t, i18n } = useTranslation()
 
-  const MOODS = [
-    { id: 'otimo', label: t('report.mood.great'), emoji: '😁' },
-    { id: 'bom', label: t('report.mood.good'), emoji: '😊' },
-    { id: 'neutro', label: t('report.mood.neutral'), emoji: '😐' },
-    { id: 'cansado', label: t('report.mood.tired'), emoji: '😴' },
-    { id: 'ruim', label: t('report.mood.bad'), emoji: '😞' },
-  ]
+ const MOODS = [
+  { id: 'otimo', label: t('report.mood.great') },
+  { id: 'bom', label: t('report.mood.good') },
+  { id: 'neutro', label: t('report.mood.neutral') },
+  { id: 'cansado', label: t('report.mood.tired') },
+  { id: 'ruim', label: t('report.mood.bad') },
+]
 
   const [form, setForm] = useState({
     workout_completed: false,
@@ -62,6 +64,18 @@ export default function ReportScreen() {
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState<any>(null)
   const [error, setError] = useState('')
+  const shimmerAnim = useRef(new Animated.Value(-1)).current
+
+useEffect(() => {
+  Animated.loop(
+    Animated.timing(shimmerAnim, {
+      toValue: 1,
+      duration: 1600,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }),
+  ).start()
+}, [])
 
   const formatInsight = (item: any) => {
     const value =
@@ -233,7 +247,7 @@ export default function ReportScreen() {
                         s.toggleTextActive,
                     ]}
                   >
-                    ✅ {t('report.yes')}
+                     {t('report.yes')}
                   </Text>
                 </TouchableOpacity>
 
@@ -257,7 +271,7 @@ export default function ReportScreen() {
                         s.toggleTextRed,
                     ]}
                   >
-                    ❌ {t('report.no')}
+                    {t('report.no')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -357,10 +371,7 @@ export default function ReportScreen() {
                       }))
                     }
                   >
-                    <Text style={s.moodEmoji}>
-                      {m.emoji}
-                    </Text>
-
+                    
                     <Text
                       style={[
                         s.moodLabel,
@@ -507,19 +518,47 @@ export default function ReportScreen() {
           </View>
         )}
 
-        {loading && (
-          <View style={s.loadingBox}>
-            <ActivityIndicator
-              size="large"
-              color="#00FF87"
-            />
+       {loading && (
+  <View style={s.loadingContainer}>
 
-            <Text style={s.loadingText}>
-              {t('report.analyzing')}
-            </Text>
-          </View>
-        )}
+    <View style={s.loadingHero}>
+      <ActivityIndicator size="small" color="#00FF87" />
+      <Text style={s.loadingTitle}>
+        Analisando seus dados
+      </Text>
 
+      <Text style={s.loadingSubtitle}>
+        Nossa IA está criando seu relatório personalizado...
+      </Text>
+    </View>
+
+    {[1, 2, 3].map(item => (
+     <View key={item} style={s.skeletonCard}>
+
+  <Animated.View
+    pointerEvents="none"
+    style={[
+      s.shimmer,
+      {
+        transform: [
+          {
+            translateX: shimmerAnim.interpolate({
+              inputRange: [-1, 1],
+              outputRange: [-300, 300],
+            }),
+          },
+        ],
+      },
+    ]}
+  />
+        <View style={s.skeletonLineLarge} />
+        <View style={s.skeletonLine} />
+        <View style={s.skeletonLineShort} />
+      </View>
+    ))}
+
+  </View>
+)}
         {feedback && (
           <View style={s.feedbackContainer}>
             <View
@@ -730,7 +769,7 @@ feedback.analysis?.score
             onPress={submitReport}
           >
             <Text style={s.submitBtnText}>
-              🤖 {t('report.submit')}
+               {t('report.submit')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -856,24 +895,17 @@ sectionTitle: {
 
  energyBtn: {
   flex: 1,
-  backgroundColor: '#151B2D',
-  borderRadius: 16,
-  paddingVertical: 18,
+  backgroundColor: '#111118',
+  borderRadius: 14,
+  paddingVertical: 14,
   alignItems: 'center',
-  justifyContent: 'center',
   borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.04)',
-  minHeight: 72,
+  borderColor: 'rgba(255,255,255,0.05)',
 },
 
-  energyBtnActive: {
+ energyBtnActive: {
   borderColor: '#00FF87',
-  backgroundColor: 'rgba(0,255,135,0.10)',
-
-  shadowColor: '#00FF87',
-  shadowOpacity: 0.18,
-  shadowRadius: 8,
-  elevation: 3,
+  backgroundColor: 'rgba(0,255,135,0.12)',
 },
 
   energyNum: {
@@ -903,25 +935,18 @@ sectionTitle: {
 
  moodBtn: {
   flex: 1,
-  backgroundColor: '#151B2D',
-  borderRadius: 18,
+  backgroundColor: '#111118',
+  borderRadius: 16,
   paddingVertical: 14,
   alignItems: 'center',
-  justifyContent: 'center',
   gap: 6,
   borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.04)',
-  minHeight: 96,
+  borderColor: 'rgba(255,255,255,0.05)',
 },
 
-  moodBtnActive: {
+ moodBtnActive: {
   borderColor: '#00FF87',
   backgroundColor: 'rgba(0,255,135,0.10)',
-
-  shadowColor: '#00FF87',
-  shadowOpacity: 0.15,
-  shadowRadius: 10,
-  elevation: 3,
 },
 
   moodEmoji: {
@@ -972,24 +997,20 @@ sectionTitle: {
     gap: 8,
   },
 
-  adherenceBtn: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
+ adherenceBtn: {
+  flex: 1,
+  backgroundColor: '#111118',
+  borderRadius: 14,
+  paddingVertical: 12,
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+},
 
-  adherenceBtnActive: {
+
+ adherenceBtnActive: {
   borderColor: '#00FF87',
-  backgroundColor: 'rgba(0,255,135,0.08)',
-
-  shadowColor: '#00FF87',
-  shadowOpacity: 0.12,
-  shadowRadius: 6,
-  elevation: 2,
+  backgroundColor: 'rgba(0,255,135,0.10)',
 },
 
   adherenceBtnText: {
@@ -1007,30 +1028,22 @@ sectionTitle: {
     fontSize: 14,
   },
 
-  loadingBox: {
-    alignItems: 'center',
-    paddingTop: 80,
-    gap: 24,
-  },
-
-  loadingText: {
-    color: '#A0A0B0',
-    fontSize: 16,
-  },
 
   feedbackContainer: {
-    padding: 24,
-    gap: 16,
-  },
+  padding: 24,
+  gap: 16,
+  paddingBottom: 140,
+},
 
   scoreCard: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 2,
-    gap: 8,
-  },
+  backgroundColor: '#14141F',
+  borderRadius: 24,
+  padding: 24,
+  alignItems: 'center',
+  borderWidth: 2,
+  gap: 10,
+  overflow: 'hidden',
+},
 
   scoreEmoji: {
     fontSize: 40,
@@ -1047,11 +1060,14 @@ sectionTitle: {
   },
 
   messageCard: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 16,
-    padding: 20,
-    gap: 8,
-  },
+  backgroundColor: '#14141F',
+  borderRadius: 20,
+  padding: 20,
+  gap: 10,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.04)',
+  overflow: 'hidden',
+},
 
   messageSubject: {
     fontSize: 16,
@@ -1072,12 +1088,13 @@ sectionTitle: {
   },
 
  card: {
-  backgroundColor: '#111827',
-  borderRadius: 18,
+  backgroundColor: '#14141F',
+  borderRadius: 20,
   padding: 18,
   gap: 10,
   borderWidth: 1,
-  borderColor: '#1F2937',
+  borderColor: 'rgba(255,255,255,0.04)',
+  overflow: 'hidden',
 },
 
   cardWarning: {
@@ -1137,23 +1154,95 @@ sectionTitle: {
     padding: 24,
   },
 
- submitBtn: {
-  backgroundColor: '#00FF87',
-  paddingVertical: 20,
-  borderRadius: 24,
-  alignItems: 'center',
-
-  shadowColor: '#00FF87',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.22,
-  shadowRadius: 18,
-  elevation: 10,
-},
+  submitBtn: {
+    backgroundColor: '#00FF87',
+    minHeight: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00FF87',
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    elevation: 10,
+  },
 
   submitBtnText: {
-  color: '#04110A',
-  fontSize: 18,
-  fontWeight: '800',
-  letterSpacing: -0.3,
+    color: '#04110A',
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
+  loadingContainer: {
+  padding: 24,
+  gap: 18,
 },
-})
+
+loadingHero: {
+  backgroundColor: '#14141F',
+  borderRadius: 24,
+  padding: 28,
+  alignItems: 'center',
+  gap: 10,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+},
+
+loadingTitle: {
+  color: '#FFFFFF',
+  fontSize: 18,
+  fontWeight: '700',
+},
+
+loadingSubtitle: {
+  color: '#8A8AA3',
+  fontSize: 14,
+  textAlign: 'center',
+  lineHeight: 22,
+},
+
+skeletonCard: {
+  backgroundColor: '#14141F',
+  borderRadius: 22,
+  padding: 20,
+  gap: 14,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.05)',
+  overflow: 'hidden',
+},
+
+skeletonLineLarge: {
+  height: 18,
+  width: '70%',
+  borderRadius: 8,
+  backgroundColor: '#1E1E2D',
+},
+
+skeletonLine: {
+  height: 14,
+  width: '100%',
+  borderRadius: 8,
+  backgroundColor: '#1E1E2D',
+},
+
+skeletonLineShort: {
+  height: 14,
+  width: '55%',
+  borderRadius: 8,
+  backgroundColor: '#1E1E2D',
+},
+
+shimmer: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: 120,
+  height: '100%',
+  backgroundColor: 'rgba(255,255,255,0.04)',
+  transform: [{ rotate: '12deg' }],
+},
+});

@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Localization from 'expo-localization'
-import { RootStackParamList } from '../../App'
-import { useDatabase } from '../context/DatabaseContext'
+import { RootStackParamList } from '../../../App'
+import { useDatabase } from '../../context/DatabaseContext'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>

@@ -169,6 +169,7 @@ function calculateHydrationScore(water_ml: number = 0): number {
 
 export async function generateWorkoutPlan(userData: UserData) {
   const lang = userData.language || 'pt';
+  const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
   const userProfile = buildUserProfile(userData);
 
   const prompt = `
@@ -205,6 +206,10 @@ RULES:
 - Adapt intensity and volume to the user's fitness level
 - Number of sessions must match weekly_days (${userData.weekly_days || 4})
 - Be specific, not generic
+- Write ALL exercise names, session names, focus areas, and technique tips in ${fullLanguage}
+- Equipment must be real and common only: barbell, dumbbell, cable machine, pull-up bar, bench, squat rack, leg press, smith machine
+- Exercise names must be clear and standard (e.g. "Supino Inclinado com Halteres", "Agachamento Livre") — never use vague or invented terms like "peso líquido", "carga fluida" or any non-standard terminology
+- technique_tip must be a practical, real coaching cue — never mention equipment that does not exist
 `;
 
   return await callGroq(prompt, lang);

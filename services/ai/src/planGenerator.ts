@@ -210,6 +210,12 @@ RULES:
 - Equipment must be real and common only: barbell, dumbbell, cable machine, pull-up bar, bench, squat rack, leg press, smith machine
 - Exercise names must be clear and standard (e.g. "Supino Inclinado com Halteres", "Agachamento Livre") — never use vague or invented terms like "peso líquido", "carga fluida" or any non-standard terminology
 - technique_tip must be a practical, real coaching cue — never mention equipment that does not exist
+- Training location is "${userData.training_location || 'gym'}" — adapt ALL exercises accordingly:
+  * gym → use barbells, dumbbells, cables, machines
+  * home → bodyweight, resistance bands, minimal equipment only
+  * martial_arts → conditioning, mobility, explosive movements relevant to combat sports
+  * outdoor → calisthenics, running, park equipment
+  * sport → athletic conditioning, agility, sport-specific movements
 `;
 
   return await callGroq(prompt, lang);

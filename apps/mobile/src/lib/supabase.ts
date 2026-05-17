@@ -28,6 +28,8 @@ export type Profile = {
   region: string | null
   currency: string | null
   currency_symbol: string | null
+  // Local de treino ✅
+  training_location: string | null
   created_at: string
   updated_at: string
 }

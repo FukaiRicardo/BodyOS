@@ -258,9 +258,43 @@ export default function PlanScreen() {
                     <Text style={s.foodDetail}>{food.quantity_g || food.quantity}g · {food.calories} kcal</Text>
                   </View>
                 ))}
+               
+{meal.protein_options?.length > 0 && (
+  <View style={s.proteinSection}>
+    <Text style={s.proteinTitle}>💪 Opções de Proteína</Text>
+    {meal.protein_options.map((p: any, j: number) => (
+      <View key={j} style={s.proteinRow}>
+        <View style={s.foodNameWrap}>
+          <Text style={s.proteinName}>{p.name}</Text>
+          {p.unit_description && (
+            <Text style={s.foodUnit}>{p.unit_description}</Text>
+          )}
+        </View>
+        <Text style={s.proteinDetail}>{p.quantity_g}g · {p.calories} kcal · {p.protein_g}g prot</Text>
+      </View>
+    ))}
+  </View>
+)}
+{meal.food_alternatives?.length > 0 && (
+  <View style={s.altSection}>
+    <Text style={s.altTitle}>🔄 Alternativas</Text>
+    {meal.food_alternatives.map((alt: any, j: number) => (
+      <View key={j} style={s.altRow}>
+        <View style={s.foodNameWrap}>
+          <Text style={s.altName}>{alt.food_name}</Text>
+          <Text style={s.foodUnit}>substitui: {alt.replaces} · {alt.reason}</Text>
+        </View>
+        <Text style={s.altDetail}>{alt.quantity_g}g · {alt.calories} kcal</Text>
+      </View>
+    ))}
+  </View>
+)}
+
+
+            
                 {meal.estimated_cost != null && (
                   <Text style={s.mealCost}>
-                    💰 {plan.nutrition.currency_symbol ?? ''}{meal.estimated_cost.toFixed(2)} {plan.nutrition.currency ?? ''}
+                    💰 {plan.nutrition.currency_symbol ?? ''}{Math.round(meal.estimated_cost)}
                   </Text>
                 )}
               </View>
@@ -412,4 +446,14 @@ const s = StyleSheet.create({
   footer: { padding: 24 },
   btn: { backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
   btnText: { color: '#0A0A0F', fontSize: 17, fontWeight: '700' },
+  proteinSection: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#2A2A3E', paddingTop: 8, gap: 6 },
+proteinTitle: { fontSize: 12, fontWeight: '700', color: '#00FF87', marginBottom: 4 },
+proteinRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 },
+proteinName: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
+proteinDetail: { fontSize: 12, color: '#60A5FA' },
+altSection: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#2A2A3E', paddingTop: 8, gap: 6 },
+altTitle: { fontSize: 12, fontWeight: '700', color: '#F59E0B', marginBottom: 4 },
+altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 },
+altName: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
+altDetail: { fontSize: 12, color: '#F59E0B' },
 })

@@ -18,19 +18,18 @@ import { useLocation } from '../../hooks/useLocation'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 
-// Step 1 = localização (novo), demais deslocados
 const STEPS = [
   { id: 'welcome' },
-  { id: 'location' },   // ← NOVO
+  { id: 'location' },
   { id: 'goal' },
   { id: 'level' },
-  { id: 'body' },
-  { id: 'schedule' },
+  { id: 'training_location' }, // ✅ step 4
+  { id: 'body' },              // step 5
+  { id: 'schedule' },          // step 6
 ]
 
 const DAYS = [3, 4, 5, 6]
 
-// Países mais comuns para fallback manual
 const POPULAR_COUNTRIES = [
   { name: 'Brasil', code: 'BR', flag: '🇧🇷' },
   { name: 'Japan', code: 'JP', flag: '🇯🇵' },
@@ -42,6 +41,14 @@ const POPULAR_COUNTRIES = [
   { name: 'Germany', code: 'DE', flag: '🇩🇪' },
   { name: 'United Kingdom', code: 'GB', flag: '🇬🇧' },
   { name: 'India', code: 'IN', flag: '🇮🇳' },
+]
+
+const TRAINING_LOCATIONS = [
+  { id: 'gym', label: 'Academia', emoji: '🏋️', desc: 'Acesso a equipamentos completos' },
+  { id: 'home', label: 'Casa', emoji: '🏠', desc: 'Treino sem equipamentos ou com poucos' },
+  { id: 'martial_arts', label: 'Artes Marciais', emoji: '🥊', desc: 'Luta, jiu-jitsu, boxe, etc.' },
+  { id: 'outdoor', label: 'Ao Ar Livre', emoji: '🌳', desc: 'Parque, rua, calistenia' },
+  { id: 'sport', label: 'Esporte', emoji: '⚽', desc: 'Futebol, basquete, natação, etc.' },
 ]
 
 export default function OnboardingScreen() {
@@ -62,6 +69,7 @@ export default function OnboardingScreen() {
     current_weight_kg: '',
     target_weight_kg: '',
     height_cm: '',
+    training_location: '',
   })
 
   const GOALS = [
@@ -79,9 +87,8 @@ export default function OnboardingScreen() {
 
   async function next() {
     if (step < STEPS.length - 1) {
-      // Se saindo do step de localização, inicia detecção automática
       if (step === 0) {
-        detect() // Inicia em background, não bloqueia
+        detect()
       }
       setStep(s => s + 1)
     } else {
@@ -90,12 +97,12 @@ export default function OnboardingScreen() {
         goal: form.goal,
         fitness_level: form.fitness_level,
         weekly_days: form.weekly_days,
+        training_location: form.training_location || null,
         age: form.age ? Number(form.age) : null,
         gender: form.gender || null,
         height_cm: form.height_cm ? Number(form.height_cm) : null,
         current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
         target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
-        // Dados de localização
         country: location?.country || null,
         country_code: location?.countryCode || null,
         city: location?.city || null,
@@ -113,14 +120,14 @@ export default function OnboardingScreen() {
   }
 
   const canNext = () => {
-    if (step === 1) return true // localização: sempre pode avançar (é opcional/auto)
+    if (step === 1) return true
     if (step === 2) return !!form.goal
     if (step === 3) return !!form.fitness_level
-    if (step === 4) return !!form.age && !!form.current_weight_kg && !!form.height_cm
+    if (step === 4) return !!form.training_location
+    if (step === 5) return !!form.age && !!form.current_weight_kg && !!form.height_cm
     return true
   }
 
-  // Progresso exclui o step 0 (welcome) do cálculo
   const progress = step > 0 ? ((step) / (STEPS.length - 1)) * 100 : 0
 
   const bodyFields = [
@@ -164,9 +171,7 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* ─────────────────────────────────────────
-            Step 1 — LOCALIZAÇÃO (NOVO)
-        ───────────────────────────────────────── */}
+        {/* Step 1 — Localização */}
         {step === 1 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>📍 Onde você está?</Text>
@@ -174,7 +179,6 @@ export default function OnboardingScreen() {
               Usamos sua localização para adaptar a dieta com alimentos locais e estimar custos reais.
             </Text>
 
-            {/* Estado: detectando */}
             {locationStatus === 'detecting' && (
               <View style={s.locationCard}>
                 <ActivityIndicator color="#00FF87" size="large" />
@@ -183,7 +187,6 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            {/* Estado: sucesso */}
             {locationStatus === 'success' && location && (
               <View style={s.locationSuccessCard}>
                 <View style={s.locationSuccessHeader}>
@@ -209,7 +212,6 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            {/* Estado: idle — botão para detectar */}
             {locationStatus === 'idle' && (
               <TouchableOpacity style={s.detectBtn} onPress={detect}>
                 <Text style={s.detectBtnEmoji}>📡</Text>
@@ -218,7 +220,6 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Estado: manual necessário */}
             {locationStatus === 'manual_required' && (
               <View style={s.manualSection}>
                 <View style={s.errorBanner}>
@@ -229,17 +230,11 @@ export default function OnboardingScreen() {
                   {POPULAR_COUNTRIES.map(c => (
                     <TouchableOpacity
                       key={c.code}
-                      style={[
-                        s.countryBtn,
-                        location?.countryCode === c.code && s.countryBtnActive,
-                      ]}
+                      style={[s.countryBtn, location?.countryCode === c.code && s.countryBtnActive]}
                       onPress={() => setManual({ country: c.name, countryCode: c.code, city: manualCity })}
                     >
                       <Text style={s.countryFlag}>{c.flag}</Text>
-                      <Text style={[
-                        s.countryName,
-                        location?.countryCode === c.code && s.countryNameActive,
-                      ]}>{c.name}</Text>
+                      <Text style={[s.countryName, location?.countryCode === c.code && s.countryNameActive]}>{c.name}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -265,14 +260,12 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            {/* Aviso de privacidade */}
             <View style={s.privacyNote}>
               <Text style={s.privacyText}>
                 🔒 Apenas país e cidade são armazenados. Coordenadas GPS nunca são salvas.
               </Text>
             </View>
 
-            {/* Skip */}
             {locationStatus !== 'success' && (
               <TouchableOpacity onPress={() => setStep(s => s + 1)} style={s.skipBtn}>
                 <Text style={s.skipText}>Pular esta etapa →</Text>
@@ -326,8 +319,32 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 4 — Body data */}
+        {/* Step 4 — Training Location ✅ NOVO */}
         {step === 4 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>🏋️ Onde você treina?</Text>
+            <Text style={s.stepSubtitle}>Isso personaliza seus exercícios e recomendações</Text>
+            <View style={s.optionsList}>
+              {TRAINING_LOCATIONS.map(l => (
+                <TouchableOpacity
+                  key={l.id}
+                  style={[s.levelCard, form.training_location === l.id && s.optionCardActive]}
+                  onPress={() => setForm(f => ({ ...f, training_location: l.id }))}
+                >
+                  <Text style={s.optionEmoji}>{l.emoji}</Text>
+                  <View style={s.levelInfo}>
+                    <Text style={[s.optionLabel, form.training_location === l.id && s.optionLabelActive]}>{l.label}</Text>
+                    <Text style={s.optionDesc}>{l.desc}</Text>
+                  </View>
+                  {form.training_location === l.id && <Text style={s.check}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Step 5 — Body data */}
+        {step === 5 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.bodyTitle')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.bodySubtitle')}</Text>
@@ -366,8 +383,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 5 — Schedule */}
-        {step === 5 && (
+        {/* Step 6 — Schedule */}
+        {step === 6 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.weeklyDays')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.weeklyDaysSubtitle')}</Text>
@@ -389,6 +406,7 @@ export default function OnboardingScreen() {
                 { label: '📍 Localização', value: location ? `${location.city ? location.city + ', ' : ''}${location.country}` : 'Não detectada' },
                 { label: t('home.profileGoal'), value: GOALS.find(g => g.id === form.goal)?.label },
                 { label: t('home.profileLevel'), value: LEVELS.find(l => l.id === form.fitness_level)?.label },
+                { label: '🏋️ Local de Treino', value: TRAINING_LOCATIONS.find(l => l.id === form.training_location)?.label },
                 { label: t('onboarding.trainingDays'), value: `${form.weekly_days}x ${t('onboarding.perWeek')}` },
                 { label: t('home.profileWeight'), value: form.current_weight_kg ? `${form.current_weight_kg}kg` : '-' },
                 { label: t('onboarding.height'), value: form.height_cm ? `${form.height_cm}cm` : '-' },
@@ -449,8 +467,6 @@ const s = StyleSheet.create({
   stepContent: { padding: 24, gap: 20 },
   stepTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', lineHeight: 34 },
   stepSubtitle: { fontSize: 15, color: '#A0A0B0', lineHeight: 22, marginTop: -8 },
-
-  // Localização
   locationCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 32, alignItems: 'center', gap: 16 },
   locationStatusText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   locationSubText: { color: '#A0A0B0', fontSize: 13 },
@@ -482,8 +498,6 @@ const s = StyleSheet.create({
   privacyText: { color: '#555570', fontSize: 12, lineHeight: 18 },
   skipBtn: { alignItems: 'center', paddingVertical: 8 },
   skipText: { color: '#555570', fontSize: 13 },
-
-  // Reutilizados
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   optionCard: { width: '47%', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, alignItems: 'center', gap: 6, borderWidth: 2, borderColor: 'transparent' },
   optionCardActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },

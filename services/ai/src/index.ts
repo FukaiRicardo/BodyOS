@@ -95,6 +95,7 @@ const UserProfileSchema = z.object({
   gender: z.string().optional(),
   language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
   history: z.any().optional(),
+  training_location: z.string().optional(),
   location: LocationSchema,
 })
 

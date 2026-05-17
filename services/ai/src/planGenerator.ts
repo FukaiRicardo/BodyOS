@@ -304,6 +304,8 @@ CRITICAL RULES:
 - Every meal MUST include at least 2 protein_options with foods available in ${country}
 - food_alternatives must cover at least 2 foods per meal with locally available substitutes
 - Adjust macros precisely based on: weight ${userData.current_weight_kg}kg, goal ${userData.goal}, fitness level ${userData.fitness_level}
+- For breakfast (meal_type: "breakfast"), NEVER suggest rice, heavy grains, or traditional lunch/dinner foods — use eggs, bread, oats, fruits, yogurt, or light proteins typical for morning meals
+- Breakfast must be light and practical, suitable for morning consumption
 `;
 
   const result = await callGroq(prompt, lang);

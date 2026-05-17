@@ -210,10 +210,10 @@ RULES:
   return await callGroq(prompt, lang);
 }
 
-export async function generateNutritionPlan(userData: UserData) 
-{
-    console.log('📍 LOCATION RECEIVED:', JSON.stringify(userData.location, null, 2))
+export async function generateNutritionPlan(userData: UserData) {
+  console.log('📍 LOCATION RECEIVED:', JSON.stringify(userData.location, null, 2))
   const lang = userData.language || 'pt';
+  const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
   const userProfile = buildUserProfile(userData);
   const locationContext = buildLocationContext(userData.location);
 
@@ -221,7 +221,7 @@ export async function generateNutritionPlan(userData: UserData)
   const symbol = userData.location?.currencySymbol || '$';
   const country = userData.location?.country || 'the user\'s country';
 
- const prompt = `
+  const prompt = `
 ${userProfile}
 
 ${locationContext}
@@ -243,10 +243,10 @@ Return ONLY valid JSON:
       "meal_type": "breakfast",
       "time_suggestion": "08:00",
       "total_calories": 400,
-      "estimated_cost": 150,
+      "estimated_cost": 450,
       "foods": [
         {
-          "name": "Food Name (use the local name in ${country}, never use imported or hard-to-find foods)",
+          "name": "Food Name (write in ${fullLanguage})",
           "quantity_g": 100,
           "calories": 150,
           "protein_g": 12,
@@ -255,7 +255,7 @@ Return ONLY valid JSON:
       ],
       "protein_options": [
         {
-          "name": "Protein Option 1 (e.g. chicken breast)",
+          "name": "Protein Option 1 (write in ${fullLanguage})",
           "quantity_g": 150,
           "calories": 165,
           "protein_g": 31,
@@ -263,7 +263,7 @@ Return ONLY valid JSON:
           "unit_description": "1 medium fillet"
         },
         {
-          "name": "Protein Option 2 (e.g. beef sirloin)",
+          "name": "Protein Option 2 (write in ${fullLanguage})",
           "quantity_g": 150,
           "calories": 220,
           "protein_g": 28,
@@ -273,9 +273,9 @@ Return ONLY valid JSON:
       ],
       "food_alternatives": [
         {
-          "replaces": "Food Name it replaces",
+          "replaces": "Food it replaces",
           "reason": "cheaper / easier to find / seasonal",
-          "food_name": "Alternative Food Name (local to ${country})",
+          "food_name": "Alternative (write in ${fullLanguage})",
           "quantity_g": 100,
           "calories": 140,
           "estimated_cost": 80
@@ -296,15 +296,34 @@ Return ONLY valid JSON:
 }
 
 CRITICAL RULES:
-- ALL foods must be commonly found in ${country} supermarkets — never suggest imported, exotic, or hard-to-find foods
-- estimated_cost must be a realistic integer in ${currency} (e.g. for Japan: breakfast ~300-600, lunch ~600-1200, dinner ~600-1500, snack ~100-400) — never use decimals like 10.00 for a full meal
-- currency_symbol must appear ONLY once in the display — do NOT combine symbol and currency code (use ¥500, not ¥500 JPY)
-- Every meal MUST include at least 2 protein_options with local protein sources from ${country}
-- food_alternatives must cover at least 2 foods per meal (not just protein) with local substitutes
-- Adjust all macros precisely based on: weight ${userData.current_weight_kg}kg, goal ${userData.goal}, fitness level ${userData.fitness_level}
-- Never suggest cottage cheese, Greek yogurt, or any dairy product not commonly sold in ${country}
+- Write ALL food names, meal names, and descriptions in ${fullLanguage} — never use Japanese, kanji, hiragana, or any local script
+- ALL foods must be easy to find in regular supermarkets in ${country}
+- Prioritize widely available foods: rice, eggs, chicken, fish, tofu, vegetables common in ${country}
+- estimated_cost must be a realistic integer in ${currency} — no decimals (e.g. 450, not 450.00)
+- currency display: use symbol only — write ¥450, never ¥450.00 JPY
+- Every meal MUST include at least 2 protein_options with foods available in ${country}
+- food_alternatives must cover at least 2 foods per meal with locally available substitutes
+- Adjust macros precisely based on: weight ${userData.current_weight_kg}kg, goal ${userData.goal}, fitness level ${userData.fitness_level}
 `;
-  return await callGroq(prompt, lang);
+
+  const result = await callGroq(prompt, lang);
+  return sanitizeNutritionPlan(result, userData.location);
+}
+
+function sanitizeNutritionPlan(plan: any, location?: LocationContext): any {
+  if (!plan?.meals) return plan;
+
+  plan.currency_symbol = location?.currencySymbol || '$';
+  plan.currency = location?.currency || 'USD';
+
+  plan.meals = plan.meals.map((meal: any) => {
+    if (meal.estimated_cost != null) {
+      meal.estimated_cost = Math.round(meal.estimated_cost);
+    }
+    return meal;
+  });
+
+  return plan;
 }
 
 export async function analyzeReport(reportData: UserData) {

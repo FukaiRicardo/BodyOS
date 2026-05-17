@@ -3,58 +3,158 @@ dotenv.config();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
-async function callGroq(prompt: string, language: string) {
-  if (!GROQ_API_KEY) {
-    throw new Error("GROQ_API_KEY não configurada.");
-  }
+// ─────────────────────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────────────────────
 
-  const languageMap: { [key: string]: string } = {
-    pt: 'Portuguese (Brazil)',
-    es: 'Spanish',
-    ja: 'Japanese',
-    en: 'English'
-  };
+interface LocationContext {
+  country?: string
+  countryCode?: string
+  city?: string
+  region?: string
+  currency?: string
+  currencySymbol?: string
+}
 
-  const fullLanguage = languageMap[language.toLowerCase()] || language;
+interface UserData {
+  goal?: string
+  fitness_level?: string
+  age?: number
+  gender?: string
+  current_weight_kg?: number
+  target_weight_kg?: number
+  height_cm?: number
+  weekly_days?: number
+  language?: string
+  location?: LocationContext
+  [key: string]: any
+}
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      messages: [
-        {
-          role: "system",
-          content: `You are a world-class fitness AI coach and analyst.
+// ─────────────────────────────────────────────────────────────
+// CORE: GROQ CLIENT
+// ─────────────────────────────────────────────────────────────
 
-RULES:
+const LANGUAGE_MAP: Record<string, string> = {
+  pt: 'Portuguese (Brazil)',
+  es: 'Spanish',
+  ja: 'Japanese',
+  en: 'English',
+  de: 'German',
+  fr: 'French',
+  it: 'Italian',
+  ko: 'Korean',
+  zh: 'Chinese (Simplified)',
+}
+
+async function callGroq(prompt: string, language: string, retries = 2): Promise<any> {
+  if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY não configurada.");
+
+  const fullLanguage = LANGUAGE_MAP[language.toLowerCase()] || language;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: `You are a world-class fitness AI coach and nutritionist.
+
+STRICT RULES:
 - Always respond in ${fullLanguage}
 - JSON keys must always remain in English
-- Be strict, precise, and avoid generic motivational phrases
-- Focus on real behavior, not vague encouragement
-`
-        },
-        { role: "user", content: prompt }
-      ],
-      model: "llama-3.1-8b-instant",
-      temperature: 0.3,
-      response_format: { type: "json_object" }
-    })
-  });
+- Be precise, specific, and avoid generic motivational phrases
+- Focus on real, actionable advice based on the user's actual profile
+- Never invent data not provided
+`,
+            },
+            { role: "user", content: prompt },
+          ],
+          model: "llama-3.1-8b-instant",
+          temperature: 0.3,
+          response_format: { type: "json_object" },
+        }),
+      });
 
-  const data = await response.json() as any;
-  if (!response.ok) throw new Error(data.error?.message || "Erro Groq");
+      clearTimeout(timeout);
 
-  return JSON.parse(data.choices[0].message.content);
+      if (!response.ok) {
+        const errData = await response.json() as any;
+        throw new Error(errData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json() as any;
+      return JSON.parse(data.choices[0].message.content);
+
+    } catch (err: any) {
+      clearTimeout(timeout);
+
+      const isLastAttempt = attempt === retries;
+      if (isLastAttempt) throw err;
+
+      // Espera antes de retry (backoff simples)
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Gera contexto de localização formatado para os prompts
+ * Inclui dicas sobre alimentos e custo local
+ */
+function buildLocationContext(location?: LocationContext): string {
+  if (!location?.country) {
+    return `LOCATION: Unknown (use internationally available foods, estimate costs in USD)`;
+  }
+
+  const city = location.city ? `${location.city}, ` : '';
+  const currency = location.currency || 'USD';
+  const symbol = location.currencySymbol || '$';
+
+  return `LOCATION CONTEXT:
+- User location: ${city}${location.country} (${location.countryCode || ''})
+- Currency: ${currency} (${symbol})
+- IMPORTANT: Prioritize foods that are:
+  1. Commonly found in ${location.country} supermarkets
+  2. Affordable for the local economy
+  3. Part of the local food culture when possible
+- Estimate food costs in ${currency} (${symbol}) based on typical ${location.country} prices
+- Avoid recommending exotic or hard-to-find foods for this region`;
 }
 
 /**
- * 💧 HYDRATION SCORE (novo)
+ * Constrói o perfil completo do usuário para o prompt
  */
-function calculateHydrationScore(water_ml: number = 0) {
-  if (water_ml < 500) return 0;
+function buildUserProfile(userData: UserData): string {
+  return `USER PROFILE:
+- Goal: ${userData.goal || 'not specified'}
+- Fitness level: ${userData.fitness_level || 'not specified'}
+- Age: ${userData.age || 'not specified'}
+- Gender: ${userData.gender || 'not specified'}
+- Current weight: ${userData.current_weight_kg ? userData.current_weight_kg + 'kg' : 'not specified'}
+- Target weight: ${userData.target_weight_kg ? userData.target_weight_kg + 'kg' : 'not specified'}
+- Height: ${userData.height_cm ? userData.height_cm + 'cm' : 'not specified'}
+- Training days/week: ${userData.weekly_days || 4}`;
+}
+
+/**
+ * Calcula hydration score
+ */
+function calculateHydrationScore(water_ml: number = 0): number {
+  if (water_ml < 500)  return 0;
   if (water_ml < 1000) return 20;
   if (water_ml < 1500) return 40;
   if (water_ml < 2000) return 60;
@@ -63,22 +163,29 @@ function calculateHydrationScore(water_ml: number = 0) {
   return 100;
 }
 
-export async function generateWorkoutPlan(userData: any) {
+// ─────────────────────────────────────────────────────────────
+// EXPORTS: GERADORES DE PLANO
+// ─────────────────────────────────────────────────────────────
+
+export async function generateWorkoutPlan(userData: UserData) {
   const lang = userData.language || 'pt';
+  const userProfile = buildUserProfile(userData);
 
   const prompt = `
-Create a professional workout plan for goal: ${userData.goal}.
+${userProfile}
+
+Create a professional, personalized workout plan based on this exact profile.
 
 Return ONLY valid JSON:
 {
   "name": "Plan Name",
   "duration_weeks": 4,
-  "methodology": "Methodology",
+  "methodology": "Methodology description",
   "sessions": [
     {
       "day_of_week": 1,
       "name": "Session Name",
-      "focus": "Focus",
+      "focus": "Muscle group or focus",
       "estimated_minutes": 60,
       "exercises": [
         {
@@ -86,23 +193,38 @@ Return ONLY valid JSON:
           "sets": 3,
           "reps": "12",
           "rest_seconds": 60,
-          "technique_tip": "Tip"
+          "technique_tip": "Specific technique tip"
         }
       ]
     }
   ],
-  "trainer_notes": "Notes"
+  "trainer_notes": "Personalized notes based on the user profile"
 }
+
+RULES:
+- Adapt intensity and volume to the user's fitness level
+- Number of sessions must match weekly_days (${userData.weekly_days || 4})
+- Be specific, not generic
 `;
 
   return await callGroq(prompt, lang);
 }
 
-export async function generateNutritionPlan(userData: any) {
+export async function generateNutritionPlan(userData: UserData) {
   const lang = userData.language || 'pt';
+  const userProfile = buildUserProfile(userData);
+  const locationContext = buildLocationContext(userData.location);
+
+  const currency = userData.location?.currency || 'USD';
+  const symbol = userData.location?.currencySymbol || '$';
+  const country = userData.location?.country || 'the user\'s country';
 
   const prompt = `
-Create a professional nutrition plan for goal: ${userData.goal}.
+${userProfile}
+
+${locationContext}
+
+Create a complete, personalized nutrition plan for this user.
 
 Return ONLY valid JSON:
 {
@@ -111,17 +233,30 @@ Return ONLY valid JSON:
   "carbs": 220,
   "fat": 70,
   "water_ml": 3500,
+  "currency": "${currency}",
+  "currency_symbol": "${symbol}",
   "meals": [
     {
       "name": "Meal Name",
       "meal_type": "breakfast",
       "time_suggestion": "08:00",
       "total_calories": 400,
+      "estimated_cost": 5.50,
       "foods": [
         {
-          "name": "Food Name",
+          "name": "Food Name (use local name if applicable)",
           "quantity_g": 100,
-          "calories": 150
+          "calories": 150,
+          "protein_g": 12,
+          "unit_description": "approx. 1 medium unit / 2 tablespoons / etc."
+        }
+      ],
+      "alternatives": [
+        {
+          "reason": "cheaper",
+          "food_name": "Alternative Food Name",
+          "quantity_g": 100,
+          "estimated_cost": 2.50
         }
       ]
     }
@@ -130,103 +265,114 @@ Return ONLY valid JSON:
     {
       "name": "Supplement",
       "dose": "5g",
-      "timing": "Post-workout"
+      "timing": "Post-workout",
+      "available_in": "${country}"
     }
   ],
-  "nutritionist_notes": "Notes"
+  "nutritionist_notes": "Personalized notes considering the user location and goal",
+  "local_food_tip": "One tip about affordable local foods in ${country} that support the goal"
 }
+
+CRITICAL RULES:
+- Use foods commonly found in ${country}
+- Estimate realistic costs in ${currency} for ${country}
+- Include unit_description to help user understand quantities (not just grams)
+- Provide at least one cheaper alternative per meal
+- Adjust macros based on the user's exact weight, goal, and fitness level
 `;
 
   return await callGroq(prompt, lang);
 }
 
-/**
- * 🔥 ANALYZE REPORT COM HYDRATION SCORE
- */
-export async function analyzeReport(reportData: any) {
+export async function analyzeReport(reportData: UserData) {
   const lang = reportData.language || 'pt';
-
-  const hydrationScore = calculateHydrationScore(
-    reportData.water_intake_ml || 0
-  );
+  const hydrationScore = calculateHydrationScore(reportData.water_intake_ml || 0);
 
   const prompt = `
-Analyze this fitness report rigorously:
+Analyze this fitness daily report rigorously and honestly:
 
 ${JSON.stringify(reportData)}
 
-HYDRATION SCORE (pre-calculated): ${hydrationScore}/100
+PRE-CALCULATED METRICS:
+- Hydration score: ${hydrationScore}/100
+- Recommended water baseline: 2500ml/day
 
-IMPORTANT METRICS:
-- Water intake is in milliliters (water_intake_ml)
-- Recommended baseline: 2500ml/day
-
-STRICT RULES:
-- Hydration MUST affect score
-- If hydration < 2000ml → mention dehydration risk
-- If hydration 2000–3000ml → mention adequate hydration
-- If hydration > 3000ml → mention excellent hydration
+STRICT ANALYSIS RULES:
+- Hydration MUST affect the overall score significantly
+- If water < 2000ml → flag dehydration risk clearly
+- If water 2000–3000ml → acknowledge adequate hydration
+- If water > 3000ml → commend excellent hydration
+- Be honest, not encouraging if performance was poor
+- Score must reflect actual data, not be inflated
 
 Return ONLY valid JSON:
 {
   "score": 85,
   "hydration_score": ${hydrationScore},
-  "highlights": [],
-  "attention_points": [],
-  "tomorrow_tips": []
+  "highlights": ["Specific positive point 1", "Specific positive point 2"],
+  "attention_points": ["Specific concern 1", "Specific concern 2"],
+  "tomorrow_tips": ["Concrete actionable tip 1", "Concrete actionable tip 2"]
 }
 `;
 
   return await callGroq(prompt, lang);
 }
 
-export async function adaptProtocol(userData: any) {
+export async function adaptProtocol(userData: UserData) {
   const lang = userData.language || 'pt';
+  const locationContext = buildLocationContext(userData.location);
 
   const prompt = `
-Adapt the fitness protocol based on real performance and history.
+Adapt this user's fitness protocol based on their real performance history.
 
-Goal: ${userData.goal}
-Data: ${JSON.stringify(userData)}
+${buildUserProfile(userData)}
+
+${locationContext}
+
+Performance data and history:
+${JSON.stringify(userData)}
 
 Return ONLY valid JSON:
 {
-  "adjustment_reason": "Reason for adapting the plan",
-  "changes_made": "Specific changes made to diet/workout",
+  "adjustment_reason": "Clear explanation of why the protocol needs adjustment",
+  "changes_made": "Specific changes to diet and/or workout",
   "new_calories": 2100,
-  "recovery_status": "Status of recovery",
-  "new_workout_focus": "New focus"
+  "recovery_status": "Assessment of current recovery",
+  "new_workout_focus": "Adjusted focus based on performance"
 }
+
+Rules:
+- Base all adjustments on the actual data provided
+- Consider the user's location for any dietary changes
+- Be direct about what's working and what isn't
 `;
 
   return await callGroq(prompt, lang);
 }
 
-/**
- * 🔥 FEEDBACK COACH
- */
 export async function generateClientFeedback(data: any) {
   const lang = data.language || 'pt';
 
   const prompt = `
-You are a strict elite fitness coach.
+You are a strict elite fitness coach giving personalized feedback.
 
-ANALYSIS:
+USER ANALYSIS:
 ${JSON.stringify(data.analysis)}
 
 RULES:
-- Be honest and direct
-- Call out bad behavior clearly
-- Only praise when deserved
+- Be honest and direct — no sugarcoating
+- Call out poor behavior clearly with specific examples from the data
+- Only praise genuinely good results
+- End with one concrete action for tomorrow
 - Avoid generic motivational phrases
 
 Return ONLY valid JSON:
 {
   "emoji_summary": "🔥",
-  "subject": "Short evaluation title",
-  "greeting": "Direct opening sentence",
-  "body": "Main feedback with honesty and precision",
-  "closing": "Final instruction or warning"
+  "subject": "Short, direct evaluation title",
+  "greeting": "Direct opening — address the main result immediately",
+  "body": "Honest, precise feedback referencing the actual data",
+  "closing": "One specific action instruction for tomorrow"
 }
 `;
 

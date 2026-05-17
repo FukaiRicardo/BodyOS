@@ -2,15 +2,26 @@ import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
+import { useLocation } from '../../hooks/useLocation'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 
+// Step 1 = localização (novo), demais deslocados
 const STEPS = [
   { id: 'welcome' },
+  { id: 'location' },   // ← NOVO
   { id: 'goal' },
   { id: 'level' },
   { id: 'body' },
@@ -19,12 +30,29 @@ const STEPS = [
 
 const DAYS = [3, 4, 5, 6]
 
+// Países mais comuns para fallback manual
+const POPULAR_COUNTRIES = [
+  { name: 'Brasil', code: 'BR', flag: '🇧🇷' },
+  { name: 'Japan', code: 'JP', flag: '🇯🇵' },
+  { name: 'United States', code: 'US', flag: '🇺🇸' },
+  { name: 'Portugal', code: 'PT', flag: '🇵🇹' },
+  { name: 'Mexico', code: 'MX', flag: '🇲🇽' },
+  { name: 'Argentina', code: 'AR', flag: '🇦🇷' },
+  { name: 'Colombia', code: 'CO', flag: '🇨🇴' },
+  { name: 'Germany', code: 'DE', flag: '🇩🇪' },
+  { name: 'United Kingdom', code: 'GB', flag: '🇬🇧' },
+  { name: 'India', code: 'IN', flag: '🇮🇳' },
+]
+
 export default function OnboardingScreen() {
   const navigation = useNavigation<Nav>()
   const { saveProfile } = useDatabase()
   const { t } = useTranslation()
+  const { location, status: locationStatus, error: locationError, detect, setManual } = useLocation()
+
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [manualCity, setManualCity] = useState('')
   const [form, setForm] = useState({
     goal: '',
     fitness_level: '',
@@ -51,6 +79,10 @@ export default function OnboardingScreen() {
 
   async function next() {
     if (step < STEPS.length - 1) {
+      // Se saindo do step de localização, inicia detecção automática
+      if (step === 0) {
+        detect() // Inicia em background, não bloqueia
+      }
       setStep(s => s + 1)
     } else {
       setSaving(true)
@@ -63,9 +95,16 @@ export default function OnboardingScreen() {
         height_cm: form.height_cm ? Number(form.height_cm) : null,
         current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
         target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
+        // Dados de localização
+        country: location?.country || null,
+        country_code: location?.countryCode || null,
+        city: location?.city || null,
+        region: location?.region || null,
+        currency: location?.currency || 'USD',
+        currency_symbol: location?.currencySymbol || '$',
       })
       setSaving(false)
-      navigation.navigate('Home', { profile: form } as any)
+      navigation.navigate('Home', { profile: { ...form, location } } as any)
     }
   }
 
@@ -74,13 +113,15 @@ export default function OnboardingScreen() {
   }
 
   const canNext = () => {
-    if (step === 1) return !!form.goal
-    if (step === 2) return !!form.fitness_level
-    if (step === 3) return !!form.age && !!form.current_weight_kg && !!form.height_cm
+    if (step === 1) return true // localização: sempre pode avançar (é opcional/auto)
+    if (step === 2) return !!form.goal
+    if (step === 3) return !!form.fitness_level
+    if (step === 4) return !!form.age && !!form.current_weight_kg && !!form.height_cm
     return true
   }
 
-  const progress = (step / (STEPS.length - 1)) * 100
+  // Progresso exclui o step 0 (welcome) do cálculo
+  const progress = step > 0 ? ((step) / (STEPS.length - 1)) * 100 : 0
 
   const bodyFields = [
     { label: t('onboarding.age'), key: 'age', placeholder: t('onboarding.agePlaceholder'), unit: t('onboarding.ageUnit') },
@@ -123,8 +164,125 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 1 — Goal */}
+        {/* ─────────────────────────────────────────
+            Step 1 — LOCALIZAÇÃO (NOVO)
+        ───────────────────────────────────────── */}
         {step === 1 && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>📍 Onde você está?</Text>
+            <Text style={s.stepSubtitle}>
+              Usamos sua localização para adaptar a dieta com alimentos locais e estimar custos reais.
+            </Text>
+
+            {/* Estado: detectando */}
+            {locationStatus === 'detecting' && (
+              <View style={s.locationCard}>
+                <ActivityIndicator color="#00FF87" size="large" />
+                <Text style={s.locationStatusText}>Detectando sua localização…</Text>
+                <Text style={s.locationSubText}>Isso leva apenas um segundo</Text>
+              </View>
+            )}
+
+            {/* Estado: sucesso */}
+            {locationStatus === 'success' && location && (
+              <View style={s.locationSuccessCard}>
+                <View style={s.locationSuccessHeader}>
+                  <Text style={s.locationCheckmark}>✓</Text>
+                  <Text style={s.locationDetectedLabel}>Localização detectada</Text>
+                </View>
+                <Text style={s.locationCity}>
+                  {location.city ? `${location.city}, ` : ''}{location.country}
+                </Text>
+                <View style={s.locationMeta}>
+                  <View style={s.locationMetaBadge}>
+                    <Text style={s.locationMetaText}>💱 {location.currency} ({location.currencySymbol})</Text>
+                  </View>
+                  <View style={s.locationMetaBadge}>
+                    <Text style={s.locationMetaText}>
+                      {location.detectedBy === 'gps' ? '📡 GPS' : location.detectedBy === 'ip' ? '🌐 IP' : '✏️ Manual'}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => detect()} style={s.retryBtn}>
+                  <Text style={s.retryBtnText}>🔄 Detectar novamente</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Estado: idle — botão para detectar */}
+            {locationStatus === 'idle' && (
+              <TouchableOpacity style={s.detectBtn} onPress={detect}>
+                <Text style={s.detectBtnEmoji}>📡</Text>
+                <Text style={s.detectBtnText}>Detectar localização automaticamente</Text>
+                <Text style={s.detectBtnSub}>Usamos GPS ou IP — sem armazenar coordenadas</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Estado: manual necessário */}
+            {locationStatus === 'manual_required' && (
+              <View style={s.manualSection}>
+                <View style={s.errorBanner}>
+                  <Text style={s.errorText}>⚠️ {locationError}</Text>
+                </View>
+                <Text style={s.manualLabel}>Selecione seu país:</Text>
+                <View style={s.countriesGrid}>
+                  {POPULAR_COUNTRIES.map(c => (
+                    <TouchableOpacity
+                      key={c.code}
+                      style={[
+                        s.countryBtn,
+                        location?.countryCode === c.code && s.countryBtnActive,
+                      ]}
+                      onPress={() => setManual({ country: c.name, countryCode: c.code, city: manualCity })}
+                    >
+                      <Text style={s.countryFlag}>{c.flag}</Text>
+                      <Text style={[
+                        s.countryName,
+                        location?.countryCode === c.code && s.countryNameActive,
+                      ]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {location && (
+                  <View style={s.inputWrap}>
+                    <Text style={s.inputLabel}>Cidade (opcional)</Text>
+                    <View style={s.inputRow}>
+                      <TextInput
+                        style={s.input}
+                        placeholder="Ex: São Paulo"
+                        placeholderTextColor="#555"
+                        value={manualCity}
+                        onChangeText={v => {
+                          setManualCity(v)
+                          if (location) {
+                            setManual({ country: location.country, countryCode: location.countryCode, city: v })
+                          }
+                        }}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Aviso de privacidade */}
+            <View style={s.privacyNote}>
+              <Text style={s.privacyText}>
+                🔒 Apenas país e cidade são armazenados. Coordenadas GPS nunca são salvas.
+              </Text>
+            </View>
+
+            {/* Skip */}
+            {locationStatus !== 'success' && (
+              <TouchableOpacity onPress={() => setStep(s => s + 1)} style={s.skipBtn}>
+                <Text style={s.skipText}>Pular esta etapa →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Step 2 — Goal */}
+        {step === 2 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.goal')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.goalSubtitle')}</Text>
@@ -144,8 +302,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 2 — Level */}
-        {step === 2 && (
+        {/* Step 3 — Level */}
+        {step === 3 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.level')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.levelSubtitle')}</Text>
@@ -168,8 +326,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 3 — Body data */}
-        {step === 3 && (
+        {/* Step 4 — Body data */}
+        {step === 4 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.bodyTitle')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.bodySubtitle')}</Text>
@@ -208,8 +366,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 4 — Schedule */}
-        {step === 4 && (
+        {/* Step 5 — Schedule */}
+        {step === 5 && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.weeklyDays')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.weeklyDaysSubtitle')}</Text>
@@ -228,6 +386,7 @@ export default function OnboardingScreen() {
             <View style={s.summaryCard}>
               <Text style={s.summaryTitle}>📋 {t('onboarding.summary')}</Text>
               {[
+                { label: '📍 Localização', value: location ? `${location.city ? location.city + ', ' : ''}${location.country}` : 'Não detectada' },
                 { label: t('home.profileGoal'), value: GOALS.find(g => g.id === form.goal)?.label },
                 { label: t('home.profileLevel'), value: LEVELS.find(l => l.id === form.fitness_level)?.label },
                 { label: t('onboarding.trainingDays'), value: `${form.weekly_days}x ${t('onboarding.perWeek')}` },
@@ -236,7 +395,7 @@ export default function OnboardingScreen() {
               ].map((item, i) => (
                 <View key={i} style={s.summaryRow}>
                   <Text style={s.summaryLabel}>{item.label}</Text>
-                  <Text style={s.summaryValue}>{item.value}</Text>
+                  <Text style={s.summaryValue}>{item.value || '-'}</Text>
                 </View>
               ))}
             </View>
@@ -259,7 +418,11 @@ export default function OnboardingScreen() {
           {saving
             ? <ActivityIndicator color="#0A0A0F" />
             : <Text style={s.btnNextText}>
-                {step === 0 ? t('onboarding.start') : step === STEPS.length - 1 ? t('onboarding.generate') : t('onboarding.continue')}
+                {step === 0
+                  ? t('onboarding.start')
+                  : step === STEPS.length - 1
+                    ? t('onboarding.generate')
+                    : t('onboarding.continue')}
               </Text>
           }
         </TouchableOpacity>
@@ -286,6 +449,41 @@ const s = StyleSheet.create({
   stepContent: { padding: 24, gap: 20 },
   stepTitle: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', lineHeight: 34 },
   stepSubtitle: { fontSize: 15, color: '#A0A0B0', lineHeight: 22, marginTop: -8 },
+
+  // Localização
+  locationCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 32, alignItems: 'center', gap: 16 },
+  locationStatusText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  locationSubText: { color: '#A0A0B0', fontSize: 13 },
+  locationSuccessCard: { backgroundColor: '#0D2E1A', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#00FF87', gap: 12 },
+  locationSuccessHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locationCheckmark: { color: '#00FF87', fontSize: 20, fontWeight: '800' },
+  locationDetectedLabel: { color: '#00FF87', fontSize: 14, fontWeight: '600' },
+  locationCity: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
+  locationMeta: { flexDirection: 'row', gap: 8 },
+  locationMetaBadge: { backgroundColor: '#1A1A2E', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  locationMetaText: { color: '#A0A0B0', fontSize: 12 },
+  retryBtn: { alignSelf: 'flex-start', marginTop: 4 },
+  retryBtnText: { color: '#A0A0B0', fontSize: 13 },
+  detectBtn: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 24, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#2A2A4E' },
+  detectBtnEmoji: { fontSize: 36 },
+  detectBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  detectBtnSub: { color: '#A0A0B0', fontSize: 12, textAlign: 'center' },
+  manualSection: { gap: 16 },
+  errorBanner: { backgroundColor: '#2E1A0D', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FF6B35' },
+  errorText: { color: '#FF9F6B', fontSize: 13 },
+  manualLabel: { color: '#A0A0B0', fontSize: 14, fontWeight: '600' },
+  countriesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  countryBtn: { backgroundColor: '#1A1A2E', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'transparent' },
+  countryBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
+  countryFlag: { fontSize: 18 },
+  countryName: { color: '#A0A0B0', fontSize: 12, fontWeight: '500' },
+  countryNameActive: { color: '#00FF87' },
+  privacyNote: { backgroundColor: '#111120', borderRadius: 10, padding: 12 },
+  privacyText: { color: '#555570', fontSize: 12, lineHeight: 18 },
+  skipBtn: { alignItems: 'center', paddingVertical: 8 },
+  skipText: { color: '#555570', fontSize: 13 },
+
+  // Reutilizados
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   optionCard: { width: '47%', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, alignItems: 'center', gap: 6, borderWidth: 2, borderColor: 'transparent' },
   optionCardActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },

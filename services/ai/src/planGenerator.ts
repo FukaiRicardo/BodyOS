@@ -11,7 +11,7 @@ interface LocationContext {
   country?: string
   countryCode?: string
   city?: string
-  region?: string
+  region?: string | null 
   currency?: string
   currencySymbol?: string
 }
@@ -210,7 +210,9 @@ RULES:
   return await callGroq(prompt, lang);
 }
 
-export async function generateNutritionPlan(userData: UserData) {
+export async function generateNutritionPlan(userData: UserData) 
+{
+    console.log('📍 LOCATION RECEIVED:', JSON.stringify(userData.location, null, 2))
   const lang = userData.language || 'pt';
   const userProfile = buildUserProfile(userData);
   const locationContext = buildLocationContext(userData.location);
@@ -378,3 +380,4 @@ Return ONLY valid JSON:
 
   return await callGroq(prompt, lang);
 }
+

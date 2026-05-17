@@ -20,6 +20,10 @@ const PORT = process.env.PORT ?? 3001
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+// ─────────────────────────────────────────────────────────────
+// SEGURANÇA: HEADERS
+// ─────────────────────────────────────────────────────────────
+
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({
   origin: '*',
@@ -29,13 +33,28 @@ app.use(cors({
 
 app.use(express.json({ limit: '10kb' }))
 
+// ─────────────────────────────────────────────────────────────
+// SEGURANÇA: RATE LIMITING
+// ─────────────────────────────────────────────────────────────
+
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 50, 
+  max: 50,
   message: { error: 'Too many requests' },
   skip: (req) => req.path === '/health',
 })
 app.use(limiter)
+
+// Rate limit mais restrito para rotas de IA (custosas)
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many AI requests. Wait a moment.' },
+})
+
+// ─────────────────────────────────────────────────────────────
+// SEGURANÇA: API KEY
+// ─────────────────────────────────────────────────────────────
 
 const AI_API_KEY = process.env.AI_API_KEY
 
@@ -49,7 +68,22 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction): void =>
   next()
 }
 
+// ─────────────────────────────────────────────────────────────
+// VALIDAÇÃO: SCHEMAS ZOD
+// ─────────────────────────────────────────────────────────────
+
 const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
+
+// ✅ FIX: location agora está no schema — Zod não descarta mais o campo
+const LocationSchema = z.object({
+  country: z.string().optional(),
+  countryCode: z.string().optional(),
+  city: z.string().optional(),
+  region: z.string().nullable().optional(),
+  currency: z.string().optional(),
+  currencySymbol: z.string().optional(),
+}).optional()
+
 const UserProfileSchema = z.object({
   goal: z.string(),
   fitness_level: z.string(),
@@ -60,39 +94,52 @@ const UserProfileSchema = z.object({
   age: z.number().optional(),
   gender: z.string().optional(),
   language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
-  history: z.any().optional(), // Adicionado para suportar adaptação
+  history: z.any().optional(),
+  location: LocationSchema,
 })
+
+// ─────────────────────────────────────────────────────────────
+// ROTAS
+// ─────────────────────────────────────────────────────────────
 
 app.get('/health', (_: Request, res: Response) => {
   res.json({ status: 'ok', service: 'ai' })
 })
 
-app.post('/nutrition/generate', requireApiKey, async (req: Request, res: Response) => {
+app.post('/nutrition/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     const validatedData = UserProfileSchema.parse(req.body)
+    console.log('📍 [nutrition] location recebida:', JSON.stringify(validatedData.location, null, 2))
     const result = await generateNutritionPlan(validatedData)
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid request data', details: error.errors })
+      return
+    }
     console.error('Erro Nutrition:', error?.message)
     res.status(500).json({ error: 'AI service error' })
   }
 })
 
-app.post('/workout/generate', requireApiKey, async (req: Request, res: Response) => {
+app.post('/workout/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     await sleep(1000)
     const validatedData = UserProfileSchema.parse(req.body)
+    console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2))
     const result = await generateWorkoutPlan(validatedData)
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid request data', details: error.errors })
+      return
+    }
     console.error('Erro Workout:', error?.message)
     res.status(500).json({ error: 'AI service error' })
   }
 })
 
-// --- NOVAS ROTAS ADICIONADAS ABAIXO ---
-
-app.post('/protocol/adapt', requireApiKey, async (req: Request, res: Response) => {
+app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     const result = await adaptProtocol(req.body)
     res.json(result)
@@ -102,7 +149,7 @@ app.post('/protocol/adapt', requireApiKey, async (req: Request, res: Response) =
   }
 })
 
-app.post('/report/analyze', requireApiKey, async (req: Request, res: Response) => {
+app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     const result = await analyzeReport(req.body)
     res.json(result)
@@ -112,27 +159,18 @@ app.post('/report/analyze', requireApiKey, async (req: Request, res: Response) =
   }
 })
 
-app.post('/feedback/generate', requireApiKey, async (req: Request, res: Response) => {
+app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     const report = await analyzeReport(req.body)
-
     const feedback = await generateClientFeedback({
       ...req.body,
       analysis: report
     })
-
     res.json(feedback)
-
   } catch (error: any) {
     console.error('Erro Feedback:', error?.message)
-
-    res.status(500).json({
-      error: 'Erro ao gerar feedback'
-    })
+    res.status(500).json({ error: 'Erro ao gerar feedback' })
   }
-})
-app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`AI service rodando na porta ${PORT}`)
 })
 
 app.get('/debug/routes', (_req, res) => {
@@ -146,4 +184,12 @@ app.get('/debug/routes', (_req, res) => {
       '/feedback/generate',
     ],
   })
+})
+
+// ─────────────────────────────────────────────────────────────
+// START
+// ─────────────────────────────────────────────────────────────
+
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`AI service rodando na porta ${PORT}`)
 })

@@ -56,8 +56,8 @@ function AppNavigator() {
         return
       }
       const { data } = await loadProfile()
-      if (data) {
-        const profile: UserProfile = {
+     if (data && data.goal) {
+  const profile: UserProfile = {
           goal: data.goal,
           fitness_level: data.fitness_level,
           weekly_days: data.weekly_days,

@@ -23,7 +23,7 @@ export default function PlanScreen() {
   const navigation = useNavigation<Nav>()
   const route = useRoute<Route>()
   const profile = route.params?.profile
-  const { savePlan, loadLatestPlan } = useDatabase()
+  const { savePlan, loadLatestPlan, loadProfile } = useDatabase()
   const { t, i18n } = useTranslation()
 
   const [loading, setLoading] = useState(false)
@@ -60,28 +60,44 @@ export default function PlanScreen() {
   }, [])
 
   async function generatePlan() {
-    setLoading(true)
-    setError('')
-    
-    // Detecção de idioma robusta
-    const locales = Localization.getLocales();
-    const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt';
-    const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en';
+  setLoading(true)
+  setError('')
 
-    const bodyData = {
-      goal: profile?.goal ?? 'muscle_gain',
-      fitness_level: profile?.fitness_level ?? 'intermediate',
-      weekly_days: profile?.weekly_days ?? 4,
-      current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
-      height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
-      age: profile?.age ? Number(profile.age) : undefined,
-      gender: profile?.gender,
-      language: deviceLanguage,
-    }
+  const { data: fullProfile } = await loadProfile()
 
-    const headers = { 
+  const locales = Localization.getLocales()
+  const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt'
+  const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
+
+  // ✅ Usa fullProfile para tudo, com fallback para route.params como segurança
+  const source = fullProfile ?? profile
+
+  const bodyData = {
+    goal: source?.goal ?? 'muscle_gain',
+    fitness_level: source?.fitness_level ?? 'intermediate',
+    weekly_days: source?.weekly_days ?? 4,
+    current_weight_kg: source?.current_weight_kg ? Number(source.current_weight_kg) : undefined,
+    height_cm: source?.height_cm ? Number(source.height_cm) : undefined,
+    age: source?.age ? Number(source.age) : undefined,
+    gender: source?.gender,
+    language: deviceLanguage,
+    location: fullProfile ? {
+      country: fullProfile.country,
+      countryCode: fullProfile.country_code,
+      city: fullProfile.city,
+      region: fullProfile.region,
+      currency: fullProfile.currency,
+      currencySymbol: fullProfile.currency_symbol,
+    } : undefined,
+  }
+
+  // Log temporário para confirmar
+  console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
+  // ...
+
+    const headers = {
       'Content-Type': 'application/json',
-      'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? '' 
+      'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? ''
     }
 
     try {
@@ -90,24 +106,24 @@ export default function PlanScreen() {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
-      });
-      if (!dietRes.ok) throw new Error("Erro na dieta");
-      const nutritionRaw = await dietRes.json();
+      })
+      if (!dietRes.ok) throw new Error("Erro na dieta")
+      const nutritionRaw = await dietRes.json()
 
       // 2. Pausa para evitar Rate Limit
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
       const workoutRes = await fetch(`${AI_SERVICE_URL}/workout/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
-      });
-      if (!workoutRes.ok) throw new Error("Erro no treino");
-      const workoutRaw = await workoutRes.json();
+      })
+      if (!workoutRes.ok) throw new Error("Erro no treino")
+      const workoutRaw = await workoutRes.json()
 
-      const nutritionData = nutritionRaw.data ?? nutritionRaw;
-      const workoutData = workoutRaw.data ?? workoutRaw;
+      const nutritionData = nutritionRaw.data ?? nutritionRaw
+      const workoutData = workoutRaw.data ?? workoutRaw
 
       const newPlan = {
         nutrition: nutritionData,
@@ -233,12 +249,29 @@ export default function PlanScreen() {
                 </View>
                 {meal.foods?.map((food: any, j: number) => (
                   <View key={j} style={s.foodRow}>
-                    <Text style={s.foodName}>{food.name}</Text>
+                    <View style={s.foodNameWrap}>
+                      <Text style={s.foodName}>{food.name}</Text>
+                      {food.unit_description && (
+                        <Text style={s.foodUnit}>{food.unit_description}</Text>
+                      )}
+                    </View>
                     <Text style={s.foodDetail}>{food.quantity_g || food.quantity}g · {food.calories} kcal</Text>
                   </View>
                 ))}
+                {meal.estimated_cost != null && (
+                  <Text style={s.mealCost}>
+                    💰 {plan.nutrition.currency_symbol ?? ''}{meal.estimated_cost.toFixed(2)} {plan.nutrition.currency ?? ''}
+                  </Text>
+                )}
               </View>
             ))}
+
+            {plan.nutrition.local_food_tip && (
+              <View style={s.tipCard}>
+                <Text style={s.tipTitle}>🌍 Dica local</Text>
+                <Text style={s.tipText}>{plan.nutrition.local_food_tip}</Text>
+              </View>
+            )}
 
             {plan.nutrition.supplements?.length > 0 && (
               <>
@@ -348,9 +381,15 @@ const s = StyleSheet.create({
   mealInfo: { flex: 1 },
   mealName: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   mealTime: { fontSize: 13, color: '#A0A0B0', marginTop: 2 },
-  foodRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderTopWidth: 1, borderTopColor: '#2A2A3E' },
-  foodName: { fontSize: 13, color: '#FFFFFF', flex: 1, paddingLeft: 4, flexWrap: 'wrap' },
+  foodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6, borderTopWidth: 1, borderTopColor: '#2A2A3E' },
+  foodNameWrap: { flex: 1, paddingLeft: 4, gap: 2 },
+  foodName: { fontSize: 13, color: '#FFFFFF', flexWrap: 'wrap' },
+  foodUnit: { fontSize: 11, color: '#555570', fontStyle: 'italic' },
   foodDetail: { fontSize: 13, color: '#A0A0B0' },
+  mealCost: { fontSize: 12, color: '#00FF87', marginTop: 4, opacity: 0.7 },
+  tipCard: { backgroundColor: '#0D1A2E', borderRadius: 14, padding: 16, borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  tipTitle: { fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 6 },
+  tipText: { fontSize: 13, color: '#A0A0B0', lineHeight: 20 },
   supRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#1A1A2E', padding: 14, borderRadius: 12 },
   supName: { fontSize: 14, color: '#FFFFFF', fontWeight: '600' },
   supDetail: { fontSize: 13, color: '#A0A0B0' },

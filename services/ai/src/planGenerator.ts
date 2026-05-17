@@ -221,7 +221,7 @@ export async function generateNutritionPlan(userData: UserData)
   const symbol = userData.location?.currencySymbol || '$';
   const country = userData.location?.country || 'the user\'s country';
 
-  const prompt = `
+ const prompt = `
 ${userProfile}
 
 ${locationContext}
@@ -243,22 +243,42 @@ Return ONLY valid JSON:
       "meal_type": "breakfast",
       "time_suggestion": "08:00",
       "total_calories": 400,
-      "estimated_cost": 5.50,
+      "estimated_cost": 150,
       "foods": [
         {
-          "name": "Food Name (use local name if applicable)",
+          "name": "Food Name (use the local name in ${country}, never use imported or hard-to-find foods)",
           "quantity_g": 100,
           "calories": 150,
           "protein_g": 12,
-          "unit_description": "approx. 1 medium unit / 2 tablespoons / etc."
+          "unit_description": "1 medium unit / 2 tablespoons / etc."
         }
       ],
-      "alternatives": [
+      "protein_options": [
         {
-          "reason": "cheaper",
-          "food_name": "Alternative Food Name",
+          "name": "Protein Option 1 (e.g. chicken breast)",
+          "quantity_g": 150,
+          "calories": 165,
+          "protein_g": 31,
+          "estimated_cost": 120,
+          "unit_description": "1 medium fillet"
+        },
+        {
+          "name": "Protein Option 2 (e.g. beef sirloin)",
+          "quantity_g": 150,
+          "calories": 220,
+          "protein_g": 28,
+          "estimated_cost": 180,
+          "unit_description": "1 palm-sized portion"
+        }
+      ],
+      "food_alternatives": [
+        {
+          "replaces": "Food Name it replaces",
+          "reason": "cheaper / easier to find / seasonal",
+          "food_name": "Alternative Food Name (local to ${country})",
           "quantity_g": 100,
-          "estimated_cost": 2.50
+          "calories": 140,
+          "estimated_cost": 80
         }
       ]
     }
@@ -276,13 +296,14 @@ Return ONLY valid JSON:
 }
 
 CRITICAL RULES:
-- Use foods commonly found in ${country}
-- Estimate realistic costs in ${currency} for ${country}
-- Include unit_description to help user understand quantities (not just grams)
-- Provide at least one cheaper alternative per meal
-- Adjust macros based on the user's exact weight, goal, and fitness level
+- ALL foods must be commonly found in ${country} supermarkets — never suggest imported, exotic, or hard-to-find foods
+- estimated_cost must be a realistic integer in ${currency} (e.g. for Japan: breakfast ~300-600, lunch ~600-1200, dinner ~600-1500, snack ~100-400) — never use decimals like 10.00 for a full meal
+- currency_symbol must appear ONLY once in the display — do NOT combine symbol and currency code (use ¥500, not ¥500 JPY)
+- Every meal MUST include at least 2 protein_options with local protein sources from ${country}
+- food_alternatives must cover at least 2 foods per meal (not just protein) with local substitutes
+- Adjust all macros precisely based on: weight ${userData.current_weight_kg}kg, goal ${userData.goal}, fitness level ${userData.fitness_level}
+- Never suggest cottage cheese, Greek yogurt, or any dairy product not commonly sold in ${country}
 `;
-
   return await callGroq(prompt, lang);
 }
 

@@ -81,6 +81,7 @@ export default function PlanScreen() {
     age: source?.age ? Number(source.age) : undefined,
     gender: source?.gender,
     language: deviceLanguage,
+    training_location: source?.training_location ?? 'gym',
     location: fullProfile ? {
       country: fullProfile.country,
       countryCode: fullProfile.country_code,

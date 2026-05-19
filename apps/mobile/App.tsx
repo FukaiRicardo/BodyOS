@@ -56,7 +56,7 @@ function AppNavigator() {
         return
       }
       const { data } = await loadProfile()
-     if (data && data.goal) {
+    if (data && data.goal && data.training_location) {
   const profile: UserProfile = {
           goal: data.goal,
           fitness_level: data.fitness_level,

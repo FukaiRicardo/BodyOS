@@ -72,27 +72,28 @@ export default function PlanScreen() {
   // ✅ Usa fullProfile para tudo, com fallback para route.params como segurança
   const source = fullProfile ?? profile
 
-  const bodyData = {
-    goal: source?.goal ?? 'muscle_gain',
-    fitness_level: source?.fitness_level ?? 'intermediate',
-    weekly_days: source?.weekly_days ?? 4,
-    current_weight_kg: source?.current_weight_kg ? Number(source.current_weight_kg) : undefined,
-    height_cm: source?.height_cm ? Number(source.height_cm) : undefined,
-    age: source?.age ? Number(source.age) : undefined,
-    gender: source?.gender,
-    language: deviceLanguage,
-    training_location: source?.training_location ?? 'gym',
-    location: fullProfile ? {
-      country: fullProfile.country,
-      countryCode: fullProfile.country_code,
-      city: fullProfile.city,
-      region: fullProfile.region,
-      currency: fullProfile.currency,
-      currencySymbol: fullProfile.currency_symbol,
-    } : undefined,
-  }
+const bodyData = {
+  goal: source?.goal ?? 'muscle_gain',
+  fitness_level: source?.fitness_level ?? 'intermediate',
+  weekly_days: source?.weekly_days ?? 4,
+  current_weight_kg: source?.current_weight_kg ? Number(source.current_weight_kg) : undefined,
+  height_cm: source?.height_cm ? Number(source.height_cm) : undefined,
+  age: source?.age ? Number(source.age) : undefined,
+  gender: source?.gender,
+  language: deviceLanguage,
+  training_location: source?.training_location ?? 'gym',  
+  location: fullProfile ? {
+    country: fullProfile.country,
+    countryCode: fullProfile.country_code,
+    city: fullProfile.city,
+    region: fullProfile.region,
+    currency: fullProfile.currency,
+    currencySymbol: fullProfile.currency_symbol,
+  } : undefined,
+}
 
-  // Log temporário para confirmar
+  console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
+console.log('📦 source completo:', JSON.stringify(source, null, 2))
   console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
   // ...
 

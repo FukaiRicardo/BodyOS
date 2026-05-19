@@ -26,6 +26,7 @@ export type UserProfile = {
   current_weight_kg: string
   target_weight_kg: string
   height_cm: string
+   training_location: string 
 }
 
 export type RootStackParamList = {
@@ -56,16 +57,17 @@ function AppNavigator() {
         return
       }
       const { data } = await loadProfile()
-    if (data && data.goal && data.training_location) {
-  const profile: UserProfile = {
-          goal: data.goal,
-          fitness_level: data.fitness_level,
-          weekly_days: data.weekly_days,
+      if (data) {
+        const profile: UserProfile = {
+          goal: data.goal ?? '',
+          fitness_level: data.fitness_level ?? '',
+          weekly_days: data.weekly_days ?? 0,
           age: data.age?.toString() ?? '',
           gender: data.gender ?? '',
           current_weight_kg: data.current_weight_kg?.toString() ?? '',
           target_weight_kg: data.target_weight_kg?.toString() ?? '',
           height_cm: data.height_cm?.toString() ?? '',
+          training_location: data.training_location ?? '',
         }
         setExistingProfile(profile)
       }
@@ -76,24 +78,20 @@ function AppNavigator() {
   }, [session])
 
   useEffect(() => {
-    if (!ready || !navigationRef.current) return
-    if (session && existingProfile) {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Home', params: { profile: existingProfile } }],
-      })
-    } else if (session && !existingProfile) {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Onboarding' }],
-      })
-    } else {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      })
-    }
-  }, [ready, session, existingProfile])
+  if (!ready || !navigationRef.current) return
+  // 🧪 MODO TESTE — sempre vai para Onboarding se tiver sessão
+  if (session) {
+    navigationRef.current.reset({
+      index: 0,
+      routes: [{ name: 'Onboarding' }],
+    })
+  } else {
+    navigationRef.current.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    })
+  }
+}, [ready, session])
 
   if (loading || (session && checkingProfile)) {
     return (

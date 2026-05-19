@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "BodyOs",
-    "slug": "ai",
+    "slug": "bodyos",
     "version": "1.0.0",
     "orientation": "portrait",
     "android": {
-      "package": "com.fukairicardo.ai"
+      "package": "com.fukairicardo.bodyos"
     },
     "plugins": [
       "expo-localization"

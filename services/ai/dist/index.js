@@ -13,6 +13,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const zod_1 = require("zod");
 const planGenerator_1 = require("./planGenerator");
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT ?? 3001;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // ─────────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req, res) => {
         await sleep(1000);
         const validatedData = UserProfileSchema.parse(req.body);
         console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2));
+        console.log('🏋️ [workout] training_location DIRETO:', validatedData.training_location);
         const result = await (0, planGenerator_1.generateWorkoutPlan)(validatedData);
         res.json(result);
     }

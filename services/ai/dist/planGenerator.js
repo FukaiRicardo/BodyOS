@@ -139,6 +139,7 @@ function calculateHydrationScore(water_ml = 0) {
 // EXPORTS: GERADORES DE PLANO
 // ─────────────────────────────────────────────────────────────
 async function generateWorkoutPlan(userData) {
+    console.log('🏋️ training_location recebido:', userData.training_location);
     const lang = userData.language || 'pt';
     const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
     const userProfile = buildUserProfile(userData);

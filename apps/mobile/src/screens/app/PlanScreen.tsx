@@ -74,6 +74,8 @@ export default function PlanScreen() {
   // ✅ Usa fullProfile para tudo, com fallback para route.params como segurança
   const source = fullProfile ?? profile
 
+  console.log('🔐 Session:', session ? { id: session.user?.id, token_present: !!session.access_token } : 'null')
+
 const bodyData = {
   goal: source?.goal ?? 'muscle_gain',
   fitness_level: source?.fitness_level ?? 'intermediate',
@@ -106,25 +108,39 @@ console.log('📦 source completo:', JSON.stringify(source, null, 2))
 
     try {
       // 1. Gera Dieta
+      console.log(`📡 Chamando ${GATEWAY_URL}/api/nutrition/generate`)
       const dietRes = await fetch(`${GATEWAY_URL}/api/nutrition/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
       })
-      if (!dietRes.ok) throw new Error("Erro na dieta")
+      console.log(`📡 Dieta response status: ${dietRes.status}`)
+      if (!dietRes.ok) {
+        const errorText = await dietRes.text()
+        console.error(`❌ Erro dieta (${dietRes.status}):`, errorText)
+        throw new Error(`Erro na dieta: ${dietRes.status}`)
+      }
       const nutritionRaw = await dietRes.json()
+      console.log('✅ Dieta recebida')
 
       // 2. Pausa para evitar Rate Limit
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
+      console.log(`📡 Chamando ${GATEWAY_URL}/api/workout/generate`)
       const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
       })
-      if (!workoutRes.ok) throw new Error("Erro no treino")
+      console.log(`📡 Treino response status: ${workoutRes.status}`)
+      if (!workoutRes.ok) {
+        const errorText = await workoutRes.text()
+        console.error(`❌ Erro treino (${workoutRes.status}):`, errorText)
+        throw new Error(`Erro no treino: ${workoutRes.status}`)
+      }
       const workoutRaw = await workoutRes.json()
+      console.log('✅ Treino recebido')
 
       const nutritionData = nutritionRaw.data ?? nutritionRaw
       const workoutData = workoutRaw.data ?? workoutRaw

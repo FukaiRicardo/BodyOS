@@ -52,7 +52,7 @@ export const authLimiter = rateLimit({
 
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   keyGenerator: (req: Request & { user?: { id: string } }) =>
     req.user?.id ?? req.ip ?? 'unknown',
 })

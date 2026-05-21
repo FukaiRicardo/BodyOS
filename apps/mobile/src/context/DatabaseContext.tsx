@@ -3,9 +3,9 @@ import { supabase, Profile, Plan, Report } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import i18n from '../i18n'
 
-const AI_SERVICE_URL =
-  process.env.EXPO_PUBLIC_AI_SERVICE_URL ??
-  'http://192.168.0.205:3001'
+const GATEWAY_URL =
+  process.env.EXPO_PUBLIC_GATEWAY_URL ??
+  'http://192.168.0.205:3000'
 
 type DatabaseContextType = {
   // Profile
@@ -75,7 +75,7 @@ export function DatabaseProvider({
 }: {
   children: React.ReactNode
 }) {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
 
   // ════════════════════════════════════════
   // PROFILE
@@ -372,18 +372,13 @@ export function DatabaseProvider({
       // FETCH IA
 
       const response = await fetch(
-        `${AI_SERVICE_URL}/protocol/adapt`,
+        `${GATEWAY_URL}/api/protocol/adapt`,
         {
           method: 'POST',
 
           headers: {
-            'Content-Type':
-              'application/json',
-
-            'X-API-Key':
-              process.env
-                .EXPO_PUBLIC_AI_API_KEY ??
-              '',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
           },
 
           body: JSON.stringify({

@@ -6,11 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
+import { useAuth } from '../../context/AuthContext'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
 
-const AI_SERVICE_URL = 'https://bodyos-ai-service.onrender.com'
+const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -25,6 +26,7 @@ export default function PlanScreen() {
   const profile = route.params?.profile
   const { savePlan, loadLatestPlan, loadProfile } = useDatabase()
   const { t, i18n } = useTranslation()
+  const { session } = useAuth()
 
   const [loading, setLoading] = useState(false)
   const [loadingExisting, setLoadingExisting] = useState(true)
@@ -99,12 +101,12 @@ console.log('📦 source completo:', JSON.stringify(source, null, 2))
 
     const headers = {
       'Content-Type': 'application/json',
-      'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? ''
+      'Authorization': `Bearer ${session?.access_token ?? ''}`
     }
 
     try {
       // 1. Gera Dieta
-      const dietRes = await fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
+      const dietRes = await fetch(`${GATEWAY_URL}/api/nutrition/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
@@ -116,7 +118,7 @@ console.log('📦 source completo:', JSON.stringify(source, null, 2))
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
-      const workoutRes = await fetch(`${AI_SERVICE_URL}/workout/generate`, {
+      const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),

@@ -16,11 +16,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
+import { useAuth } from '../../context/AuthContext'
 
 type Route = RouteProp<RootStackParamList, 'Report'>
 
-const AI_SERVICE_URL =
-  process.env.EXPO_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:3001'
+const GATEWAY_URL =
+  process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
 
 const ENERGY_LEVELS = [1, 2, 3, 4, 5]
 
@@ -36,6 +37,7 @@ export default function ReportScreen() {
   const route = useRoute<Route>()
   const profile = route.params?.profile
   const { t, i18n } = useTranslation()
+  const { session } = useAuth()
 
  const MOODS = [
   { id: 'otimo', label: t('report.mood.great') },
@@ -133,29 +135,24 @@ useEffect(() => {
         language: i18n.language,
       }
 
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+      }
+
       const [analysis, clientFeedback] =
         await Promise.all([
-          fetch(`${AI_SERVICE_URL}/report/analyze`, {
+          fetch(`${GATEWAY_URL}/api/report/analyze`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key':
-                process.env.EXPO_PUBLIC_AI_API_KEY ??
-                '',
-            },
+            headers,
             body: JSON.stringify(report),
           }).then(r => r.json()),
 
           fetch(
-            `${AI_SERVICE_URL}/feedback/generate`,
+            `${GATEWAY_URL}/api/feedback/generate`,
             {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key':
-                  process.env.EXPO_PUBLIC_AI_API_KEY ??
-                  '',
-              },
+              headers,
               body: JSON.stringify(report),
             }
           ).then(r => r.json()),

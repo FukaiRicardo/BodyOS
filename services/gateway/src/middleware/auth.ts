@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from 'express'
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@bodayos/database'
 
 export interface AuthRequest extends Request {
   user?: { id: string; email: string; role: string }
-  supabase?: ReturnType<typeof createClient<Database>>
+  supabase?: any
 }
 
 export const authMiddleware = async (
@@ -20,7 +19,7 @@ export const authMiddleware = async (
   const token = authHeader.split(' ')[1]
 
   // Cria client com o token do usuário — RLS é aplicado automaticamente
-  const supabase = createClient<Database>(
+  const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_ANON_KEY!,
     { global: { headers: { Authorization: `Bearer ${token}` } } }
@@ -53,9 +52,9 @@ export const requirePremium = async (
     .single()
 
   const isPremium =
-    profile?.subscription === 'premium' &&
-    profile?.subscription_expires_at != null &&
-    new Date(profile.subscription_expires_at) > new Date()
+    (profile as any)?.subscription === 'premium' &&
+    (profile as any)?.subscription_expires_at != null &&
+    new Date((profile as any).subscription_expires_at) > new Date()
 
   if (!isPremium) {
     return res.status(403).json({ error: 'Premium subscription required' })

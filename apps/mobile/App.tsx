@@ -50,6 +50,9 @@ function AppNavigator() {
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList>>(null)
 
   useEffect(() => {
+    setReady(false)
+    setCheckingProfile(true)
+    
     async function checkProfile() {
       if (!session) {
         setCheckingProfile(false)
@@ -70,6 +73,8 @@ function AppNavigator() {
           training_location: data.training_location ?? '',
         }
         setExistingProfile(profile)
+      } else {
+        setExistingProfile(null)
       }
       setCheckingProfile(false)
       setReady(true)
@@ -78,20 +83,27 @@ function AppNavigator() {
   }, [session])
 
   useEffect(() => {
-  if (!ready || !navigationRef.current) return
-  // 🧪 MODO TESTE — sempre vai para Onboarding se tiver sessão
-  if (session) {
-    navigationRef.current.reset({
-      index: 0,
-      routes: [{ name: 'Onboarding' }],
-    })
-  } else {
-    navigationRef.current.reset({
-      index: 0,
-      routes: [{ name: 'Login' }],
-    })
-  }
-}, [ready, session])
+    if (!ready || !navigationRef.current) return
+    
+    if (session) {
+      if (existingProfile && existingProfile.goal) {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Home', params: { profile: existingProfile } }],
+        })
+      } else {
+        navigationRef.current.reset({
+          index: 0,
+          routes: [{ name: 'Onboarding' }],
+        })
+      }
+    } else {
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      })
+    }
+  }, [ready, session, existingProfile])
 
   if (loading || (session && checkingProfile)) {
     return (

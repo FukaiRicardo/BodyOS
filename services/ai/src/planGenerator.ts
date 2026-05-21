@@ -217,8 +217,6 @@ RULES:
   * martial_arts → conditioning, mobility, explosive movements relevant to combat sports
   * outdoor → calisthenics, running, park equipment
   * sport → athletic conditioning, agility, sport-specific movements
-  * export async function generateWorkoutPlan(userData: UserData) {
-  console.log('🏋️ training_location recebido:', userData.training_location)
 `;
 
   return await callGroq(prompt, lang);

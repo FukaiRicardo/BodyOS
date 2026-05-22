@@ -39,7 +39,7 @@ app.use(limiter);
 // Rate limit mais restrito para rotas de IA (custosas)
 const aiLimiter = (0, express_rate_limit_1.default)({
     windowMs: 60 * 1000,
-    max: 10,
+    max: 200,
     message: { error: 'Too many AI requests. Wait a moment.' },
 });
 // ─────────────────────────────────────────────────────────────

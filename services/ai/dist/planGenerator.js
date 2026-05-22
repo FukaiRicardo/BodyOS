@@ -56,7 +56,7 @@ STRICT RULES:
                         },
                         { role: "user", content: prompt },
                     ],
-                    model: "llama-3.1-8b-instant",
+                    model: "llama-3.3-70b-versatile",
                     temperature: 0.3,
                     response_format: { type: "json_object" },
                 }),
@@ -115,7 +115,8 @@ function buildUserProfile(userData) {
 - Current weight: ${userData.current_weight_kg ? userData.current_weight_kg + 'kg' : 'not specified'}
 - Target weight: ${userData.target_weight_kg ? userData.target_weight_kg + 'kg' : 'not specified'}
 - Height: ${userData.height_cm ? userData.height_cm + 'cm' : 'not specified'}
-- Training days/week: ${userData.weekly_days || 4}`;
+- Training days/week: ${userData.weekly_days || 4}
+- Training location: ${userData.training_location || 'gym'}`;
 }
 /**
  * Calcula hydration score
@@ -187,8 +188,6 @@ RULES:
   * martial_arts → conditioning, mobility, explosive movements relevant to combat sports
   * outdoor → calisthenics, running, park equipment
   * sport → athletic conditioning, agility, sport-specific movements
-  * export async function generateWorkoutPlan(userData: UserData) {
-  console.log('🏋️ training_location recebido:', userData.training_location)
 `;
     return await callGroq(prompt, lang);
 }

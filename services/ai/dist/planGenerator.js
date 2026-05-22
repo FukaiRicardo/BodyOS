@@ -184,7 +184,7 @@ RULES:
 - technique_tip must be a practical, real coaching cue — never mention equipment that does not exist
 - Training location is "${userData.training_location || 'gym'}" — adapt ALL exercises accordingly:
   * gym → use barbells, dumbbells, cables, machines
-  * home → bodyweight, resistance bands, minimal equipment only
+  * home → strictly bodyweight ONLY: push-ups, pull-ups, squats, lunges, planks, burpees, mountain climbers, dips using chair or floor. ZERO equipment — no dumbbells, no bands, no weights of any kind. If the user has no equipment, use only their body weight.
   * martial_arts → conditioning, mobility, explosive movements relevant to combat sports
   * outdoor → calisthenics, running, park equipment
   * sport → athletic conditioning, agility, sport-specific movements

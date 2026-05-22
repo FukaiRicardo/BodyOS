@@ -147,7 +147,8 @@ function buildUserProfile(userData: UserData): string {
 - Current weight: ${userData.current_weight_kg ? userData.current_weight_kg + 'kg' : 'not specified'}
 - Target weight: ${userData.target_weight_kg ? userData.target_weight_kg + 'kg' : 'not specified'}
 - Height: ${userData.height_cm ? userData.height_cm + 'cm' : 'not specified'}
-- Training days/week: ${userData.weekly_days || 4}`;
+- Training days/week: ${userData.weekly_days || 4}
+- Training location: ${userData.training_location || 'gym'}`;
 }
 
 /**

@@ -287,6 +287,11 @@ CRITICAL RULES:
 - food_alternatives must offer real variety: if the original is a vegetable, the alternative can be a different macro source (e.g. replace salad with avocado for healthy fats, or sweet potato for more carbs)
 - Each alternative must have a clear reason: "cheaper", "more protein", "easier to find", "higher carbs", "more filling" — never generic
 - Never suggest an alternative that is nutritionally identical or visually the same as the original
+- VARIETY IS MANDATORY: Every time a plan is generated, use DIFFERENT foods, combinations and meal names. Rotate proteins, carbs and vegetables — never repeat the same meal structure twice.
+- Never use the same main protein source in more than 2 meals per day.
+- Lunch and dinner must use different proteins, different carb sources, and different vegetables from each other.
+- Snacks must alternate between: fruit + nut butter, yogurt + granola, protein shake, rice cake + protein, vegetables + hummus, boiled eggs, cheese + crackers.
+- For Japan, rotate between: onigiri, miso soup, tofu dishes, soba, udon, yakitori, tamagoyaki, edamame, natto, salmon, tuna, mackerel, chicken teriyaki, gyudon.
 `;
     const result = await callGroq(prompt, lang);
     return sanitizeNutritionPlan(result, userData.location);

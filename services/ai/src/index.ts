@@ -27,9 +27,21 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://bodyos-gateway.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ]
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'X-API-Key'],
+  credentials: false
 }))
 
 app.use(express.json({ limit: '10kb' }))

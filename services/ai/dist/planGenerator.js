@@ -140,7 +140,6 @@ function calculateHydrationScore(water_ml = 0) {
 // EXPORTS: GERADORES DE PLANO
 // ─────────────────────────────────────────────────────────────
 async function generateWorkoutPlan(userData) {
-    console.log('🏋️ training_location recebido:', userData.training_location);
     const lang = userData.language || 'pt';
     const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
     const userProfile = buildUserProfile(userData);
@@ -192,7 +191,6 @@ RULES:
     return await callGroq(prompt, lang);
 }
 async function generateNutritionPlan(userData) {
-    console.log('📍 LOCATION RECEIVED:', JSON.stringify(userData.location, null, 2));
     const lang = userData.language || 'pt';
     const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
     const userProfile = buildUserProfile(userData);

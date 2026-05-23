@@ -11,6 +11,7 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const zod_1 = require("zod");
+const logger_1 = require("./logger");
 const planGenerator_1 = require("./planGenerator");
 const app = (0, express_1.default)();
 app.set('trust proxy', 1);
@@ -20,10 +21,24 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // SEGURANÇA: HEADERS
 // ─────────────────────────────────────────────────────────────
 app.use((0, helmet_1.default)({ contentSecurityPolicy: false }));
+app.use(logger_1.pinoHttpLogger);
 app.use((0, cors_1.default)({
-    origin: '*',
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'https://bodyos-gateway.onrender.com',
+            'http://localhost:3000',
+            'http://localhost:3001'
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'X-API-Key'],
+    credentials: false
 }));
 app.use(express_1.default.json({ limit: '10kb' }));
 // ─────────────────────────────────────────────────────────────
@@ -92,16 +107,16 @@ app.get('/health', (_, res) => {
 app.post('/nutrition/generate', requireApiKey, aiLimiter, async (req, res) => {
     try {
         const validatedData = UserProfileSchema.parse(req.body);
-        console.log('📍 [nutrition] location recebida:', JSON.stringify(validatedData.location, null, 2));
         const result = await (0, planGenerator_1.generateNutritionPlan)(validatedData);
         res.json(result);
     }
     catch (error) {
         if (error?.name === 'ZodError') {
+            logger_1.logger.warn({ error: error.errors }, 'Nutrition validation failed');
             res.status(400).json({ error: 'Invalid request data', details: error.errors });
             return;
         }
-        console.error('Erro Nutrition:', error?.message);
+        logger_1.logger.error({ error: error?.message }, 'Nutrition generation failed');
         res.status(500).json({ error: 'AI service error' });
     }
 });
@@ -109,8 +124,6 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req, res) => {
     try {
         await sleep(1000);
         const validatedData = UserProfileSchema.parse(req.body);
-        console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2));
-        console.log('🏋️ [workout] training_location DIRETO:', validatedData.training_location);
         const result = await (0, planGenerator_1.generateWorkoutPlan)(validatedData);
         res.json(result);
     }
@@ -125,49 +138,52 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req, res) => {
 });
 app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req, res) => {
     try {
-        const result = await (0, planGenerator_1.adaptProtocol)(req.body);
+        const validatedData = UserProfileSchema.parse(req.body);
+        const result = await (0, planGenerator_1.adaptProtocol)(validatedData);
         res.json(result);
     }
     catch (error) {
+        if (error?.name === 'ZodError') {
+            res.status(400).json({ error: 'Invalid request data', details: error.errors });
+            return;
+        }
         console.error('Erro Adapt:', error?.message);
-        res.status(500).json({ error: 'Erro ao adaptar protocolo' });
+        res.status(500).json({ error: 'Protocol adaptation failed' });
     }
 });
 app.post('/report/analyze', requireApiKey, aiLimiter, async (req, res) => {
     try {
-        const result = await (0, planGenerator_1.analyzeReport)(req.body);
+        const validatedData = UserProfileSchema.parse(req.body);
+        const result = await (0, planGenerator_1.analyzeReport)(validatedData);
         res.json(result);
     }
     catch (error) {
+        if (error?.name === 'ZodError') {
+            res.status(400).json({ error: 'Invalid request data', details: error.errors });
+            return;
+        }
         console.error('Erro Report:', error?.message);
-        res.status(500).json({ error: 'Erro ao analisar relatório' });
+        res.status(500).json({ error: 'Report analysis failed' });
     }
 });
 app.post('/feedback/generate', requireApiKey, aiLimiter, async (req, res) => {
     try {
-        const report = await (0, planGenerator_1.analyzeReport)(req.body);
+        const validatedData = UserProfileSchema.parse(req.body);
+        const report = await (0, planGenerator_1.analyzeReport)(validatedData);
         const feedback = await (0, planGenerator_1.generateClientFeedback)({
-            ...req.body,
+            ...validatedData,
             analysis: report
         });
         res.json(feedback);
     }
     catch (error) {
+        if (error?.name === 'ZodError') {
+            res.status(400).json({ error: 'Invalid request data', details: error.errors });
+            return;
+        }
         console.error('Erro Feedback:', error?.message);
-        res.status(500).json({ error: 'Erro ao gerar feedback' });
+        res.status(500).json({ error: 'Feedback generation failed' });
     }
-});
-app.get('/debug/routes', (_req, res) => {
-    res.json({
-        routes: [
-            '/health',
-            '/nutrition/generate',
-            '/workout/generate',
-            '/protocol/adapt',
-            '/report/analyze',
-            '/feedback/generate',
-        ],
-    });
 });
 // ─────────────────────────────────────────────────────────────
 // START

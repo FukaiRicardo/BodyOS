@@ -144,49 +144,51 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req: Request, res
 
 app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
-    const result = await adaptProtocol(req.body)
+    const validatedData = UserProfileSchema.parse(req.body)
+    const result = await adaptProtocol(validatedData)
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid request data', details: error.errors })
+      return
+    }
     console.error('Erro Adapt:', error?.message)
-    res.status(500).json({ error: 'Erro ao adaptar protocolo' })
+    res.status(500).json({ error: 'Protocol adaptation failed' })
   }
 })
 
 app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
-    const result = await analyzeReport(req.body)
+    const validatedData = UserProfileSchema.parse(req.body)
+    const result = await analyzeReport(validatedData)
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid request data', details: error.errors })
+      return
+    }
     console.error('Erro Report:', error?.message)
-    res.status(500).json({ error: 'Erro ao analisar relatório' })
+    res.status(500).json({ error: 'Report analysis failed' })
   }
 })
 
 app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
-    const report = await analyzeReport(req.body)
+    const validatedData = UserProfileSchema.parse(req.body)
+    const report = await analyzeReport(validatedData)
     const feedback = await generateClientFeedback({
-      ...req.body,
+      ...validatedData,
       analysis: report
     })
     res.json(feedback)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid request data', details: error.errors })
+      return
+    }
     console.error('Erro Feedback:', error?.message)
-    res.status(500).json({ error: 'Erro ao gerar feedback' })
+    res.status(500).json({ error: 'Feedback generation failed' })
   }
-})
-
-app.get('/debug/routes', (_req, res) => {
-  res.json({
-    routes: [
-      '/health',
-      '/nutrition/generate',
-      '/workout/generate',
-      '/protocol/adapt',
-      '/report/analyze',
-      '/feedback/generate',
-    ],
-  })
 })
 
 // ─────────────────────────────────────────────────────────────

@@ -1,33 +1,28 @@
 {
-  "name": "ai",
+  "name": "bodyos-monorepo",
   "version": "1.0.0",
-  "description": "BodyOs AI Service",
-  "main": "dist/index.js",
+  "description": "BodyOs - AI-powered fitness platform (monorepo)",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "services/gateway",
+    "services/ai"
+  ],
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "dev:mobile": "cd apps/mobile && npm start",
+    "dev:gateway": "cd services/gateway && npm run dev",
+    "dev:ai": "cd services/ai && npm run dev",
+    "build": "npm run build:ai && npm run build:gateway && npm run build:mobile",
+    "build:mobile": "cd apps/mobile && npm run build",
+    "build:gateway": "cd services/gateway && npm run build",
+    "build:ai": "cd services/ai && npm run build",
+    "install:all": "npm install && npm install --workspaces"
   },
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@supabase/supabase-js": "^2.0.0",
-    "@types/cors": "^2.8.19",
-    "cors": "^2.8.6",
-    "dotenv": "^16.6.1",
-    "expo": "~54.0.34",
-    "expo-crypto": "~15.0.9",
-    "expo-device": "~8.0.10",
-    "expo-localization": "~17.0.8",
-    "openai": "^4.0.0",
-    "react": "19.1.0",
-    "react-native": "0.81.5"
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.41",
-    "@types/react": "~19.1.10",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.0"
+    "typescript": "~5.9.2"
   }
 }

@@ -110,7 +110,7 @@ const bodyData = {
       const nutritionRaw = await dietRes.json()
 
       // 2. Pausa para evitar Rate Limit
-      await new Promise(resolve => setTimeout(resolve, 1200))
+      await new Promise(resolve => setTimeout(resolve, 3000))
 
       // 3. Gera Treino
       const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {

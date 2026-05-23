@@ -7,7 +7,7 @@ const ALLOWED_ORIGINS = [
   'https://bodyos.app',
   'https://www.bodyos.app',
   ...(process.env.NODE_ENV === 'development'
-    ? ['http://localhost:8081', 'http://localhost:3000']
+    ? ['http://localhost:8081', 'http://localhost:3000', 'http://localhost:8082']
     : []),
 ]
 

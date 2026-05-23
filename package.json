@@ -3,11 +3,6 @@
   "version": "1.0.0",
   "description": "BodyOs - AI-powered fitness platform (monorepo)",
   "private": true,
-  "workspaces": [
-    "apps/mobile",
-    "services/gateway",
-    "services/ai"
-  ],
   "scripts": {
     "dev:mobile": "cd apps/mobile && npm start",
     "dev:gateway": "cd services/gateway && npm run dev",

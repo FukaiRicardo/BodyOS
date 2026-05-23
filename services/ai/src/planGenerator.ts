@@ -169,7 +169,6 @@ function calculateHydrationScore(water_ml: number = 0): number {
 // ─────────────────────────────────────────────────────────────
 
 export async function generateWorkoutPlan(userData: UserData) {
-   console.log('🏋️ training_location recebido:', userData.training_location)
   const lang = userData.language || 'pt';
   const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
   const userProfile = buildUserProfile(userData);
@@ -224,7 +223,6 @@ RULES:
 }
 
 export async function generateNutritionPlan(userData: UserData) {
-  console.log('📍 LOCATION RECEIVED:', JSON.stringify(userData.location, null, 2))
   const lang = userData.language || 'pt';
   const fullLanguage = LANGUAGE_MAP[lang.toLowerCase()] || lang;
   const userProfile = buildUserProfile(userData);

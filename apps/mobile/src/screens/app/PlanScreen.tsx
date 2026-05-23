@@ -94,9 +94,6 @@ const bodyData = {
   } : undefined,
 }
 
-  console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
-console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
-
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session?.access_token ?? ''}`

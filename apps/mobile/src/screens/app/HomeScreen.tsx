@@ -128,11 +128,6 @@ async function handleAdaptProtocol() {
   try {
     const response = await adaptProtocol()
 
-    console.log('=================================')
-    console.log('RESPOSTA COMPLETA ADAPT:')
-    console.log(JSON.stringify(response, null, 2))
-    console.log('=================================')
-
     let rawData =
       response?.data?.adaptation ||
       response?.data ||
@@ -145,11 +140,6 @@ async function handleAdaptProtocol() {
         console.error('Erro ao converter JSON:', parseError)
       }
     }
-
-    console.log('=================================')
-    console.log('RAWDATA FINAL:')
-    console.log(JSON.stringify(rawData, null, 2))
-    console.log('=================================')
 
     const hasValidData =
       rawData &&

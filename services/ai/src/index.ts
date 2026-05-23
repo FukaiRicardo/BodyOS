@@ -7,6 +7,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
+import { logger, pinoHttpLogger } from './logger'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
@@ -26,6 +27,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 // ─────────────────────────────────────────────────────────────
 
 app.use(helmet({ contentSecurityPolicy: false }))
+app.use(pinoHttpLogger)
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
@@ -123,15 +125,15 @@ app.get('/health', (_: Request, res: Response) => {
 app.post('/nutrition/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
   try {
     const validatedData = UserProfileSchema.parse(req.body)
-    console.log('📍 [nutrition] location recebida:', JSON.stringify(validatedData.location, null, 2))
     const result = await generateNutritionPlan(validatedData)
     res.json(result)
   } catch (error: any) {
     if (error?.name === 'ZodError') {
+      logger.warn({ error: error.errors }, 'Nutrition validation failed')
       res.status(400).json({ error: 'Invalid request data', details: error.errors })
       return
     }
-    console.error('Erro Nutrition:', error?.message)
+    logger.error({ error: error?.message }, 'Nutrition generation failed')
     res.status(500).json({ error: 'AI service error' })
   }
 })
@@ -140,8 +142,6 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req: Request, res
   try {
     await sleep(1000)
     const validatedData = UserProfileSchema.parse(req.body)
-    console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2))
-    console.log('🏋️ [workout] training_location DIRETO:', validatedData.training_location)
     const result = await generateWorkoutPlan(validatedData)
     res.json(result)
   } catch (error: any) {

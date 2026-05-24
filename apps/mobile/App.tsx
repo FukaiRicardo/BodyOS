@@ -16,6 +16,7 @@ import HomeScreen from './src/screens/app/HomeScreen'
 import PlanScreen from './src/screens/app/PlanScreen'
 import ProgressScreen from './src/screens/app/ProgressScreen'
 import ReportScreen from './src/screens/app/ReportScreen'
+import EditProfileScreen from './src/screens/app/EditProfileScreen'
 
 export type UserProfile = {
   goal: string
@@ -37,6 +38,7 @@ export type RootStackParamList = {
   Plan: { profile: UserProfile }
   Report: { profile: UserProfile }
   Progress: { profile: UserProfile }
+   EditProfile: undefined 
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -130,6 +132,7 @@ function AppNavigator() {
         <Stack.Screen name="Plan" component={PlanScreen} />
         <Stack.Screen name="Report" component={ReportScreen} />
         <Stack.Screen name="Progress" component={ProgressScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )

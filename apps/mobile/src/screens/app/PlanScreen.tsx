@@ -403,7 +403,7 @@ const s = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
-  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingBox: { alignItems: 'center', paddingTop: 40, gap: 24, marginBottom: 40 },
   loadingText: { color: '#A0A0B0', fontSize: 16, textAlign: 'center'  },
   savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
   savingText: { color: '#00FF87', fontSize: 13 },

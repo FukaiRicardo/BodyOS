@@ -94,6 +94,9 @@ const bodyData = {
   } : undefined,
 }
 
+  console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
+console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session?.access_token ?? ''}`
@@ -110,7 +113,7 @@ const bodyData = {
       const nutritionRaw = await dietRes.json()
 
       // 2. Pausa para evitar Rate Limit
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
       const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
@@ -307,27 +310,35 @@ const bodyData = {
             )}
 
             {plan.nutrition.supplements?.length > 0 && (
-              <>
-                <Text style={s.sectionTitle}>{t('plan.supplements')}</Text>
-                {plan.nutrition.supplements.map((sup: any, i: number) => (
-                  <View key={i} style={s.supRow}>
-                    <Text style={s.supName}>💊 {sup.name}</Text>
-                    <Text style={s.supDetail}>{sup.dose} · {sup.timing}</Text>
-                  </View>
-                ))}
-              </>
-            )}
+  <>
+    <Text style={s.sectionTitle}>{t('plan.supplements')}</Text>
+    {plan.nutrition.supplements.map((sup: any, i: number) => (
+      <View key={i} style={s.supCard}>
+        <View style={s.supHeader}>
+          <Text style={s.supName}>💊 {sup.name}</Text>
+          {sup.priority && (
+            <View style={[s.supBadge, {
+              backgroundColor: sup.priority === 'essential' ? '#0D2E1A' : sup.priority === 'recommended' ? '#0D1A2E' : '#1A1A2E'
+            }]}>
+              <Text style={[s.supBadgeText, {
+                color: sup.priority === 'essential' ? '#00FF87' : sup.priority === 'recommended' ? '#60A5FA' : '#A0A0B0'
+              }]}>
+                {sup.priority === 'essential' ? '✅ Essencial' : sup.priority === 'recommended' ? '👍 Recomendado' : '⚪ Opcional'}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={s.supDetail}>{sup.dose}</Text>
+        <Text style={s.supTiming}>⏰ {sup.timing}</Text>
+      </View>
+    ))}
+  </>
+)}
 
-            {(plan.nutrition.nutritionist_notes || plan.nutrition.notes) && (
-              <View style={s.notesCard}>
-                <Text style={s.notesTitle}>📋 {t('plan.nutritionistNotes')}</Text>
-                <Text style={s.notesText}>{plan.nutrition.nutritionist_notes || plan.nutrition.notes}</Text>
-              </View>
-            )}
-          </View>
-        )}
+  </View>
+  )}
 
-        {plan && tab === 'workout' && plan.workout && (
+  {plan && tab === 'workout' && plan.workout && (
           <View style={s.content}>
             <View style={s.workoutHeader}>
               <Text style={s.workoutName}>{plan.workout.name}</Text>
@@ -392,8 +403,8 @@ const s = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
- loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24, marginBottom: 40 },
-  loadingText: { color: '#A0A0B0', fontSize: 16, textAlign: 'center' },
+  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingText: { color: '#A0A0B0', fontSize: 16 },
   savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
   savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
@@ -455,4 +466,9 @@ altTitle: { fontSize: 12, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }
 altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 },
 altName: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
 altDetail: { fontSize: 12, color: '#F59E0B' },
+supCard: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, gap: 6 },
+supHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+supBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+supBadgeText: { fontSize: 11, fontWeight: '600' },
+supTiming: { fontSize: 12, color: '#555570', fontStyle: 'italic' },
 })

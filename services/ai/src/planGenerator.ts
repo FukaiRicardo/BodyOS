@@ -300,8 +300,9 @@ Return ONLY valid JSON:
     {
       "name": "Supplement",
       "dose": "5g",
-      "timing": "Post-workout",
-      "available_in": "${country}"
+      "timing": "Post-workout — specific time and how to take",
+      "available_in": "${country}",
+      "priority": "essential"
     }
   ],
   "nutritionist_notes": "Personalized notes considering the user location and goal",
@@ -332,6 +333,9 @@ CRITICAL RULES:
 - For each supplement: include exact dose, best timing, and specific reason for THIS user's goal
 - available_in must reflect real availability in ${country}
 - Always list Creatine Monohydrate as the first supplement, with the same dose and timing for every user, due to its universal benefits for muscle gain, strength, and performance
+- priority field must be exactly one of: "essential" (creatine, whey if needed), "recommended" (omega-3, vitamin D, magnesium), "optional" (caffeine, pre-workout, others)
+- nutritionist_notes must provide specific, personalized advice based on the user's profile and location context — never generic tips
+
 `;
 
   const result = await callGroq(prompt, lang);

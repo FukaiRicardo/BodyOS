@@ -138,7 +138,7 @@ function AppNavigator() {
   )
 }
 
-export default function App() {
+export default Sentry.wrap(function App() {
   return (
     <AuthProvider>
       <DatabaseProvider>
@@ -146,4 +146,4 @@ export default function App() {
       </DatabaseProvider>
     </AuthProvider>
   )
-} 
+});

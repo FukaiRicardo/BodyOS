@@ -943,13 +943,19 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
 
-  editProfileBtn: {
-  marginTop: 12,
+ editProfileBtn: {
+  flexDirection: 'row',
   alignItems: 'center',
-  paddingVertical: 8,
+  gap: 6,
+  marginTop: 16,
+  backgroundColor: '#1A1A2E',
+  borderRadius: 10,
+  paddingHorizontal: 14,
+  paddingVertical: 10,
+  alignSelf: 'flex-start',
 },
 editProfileBtnText: {
-  color: '#555570',
+  color: '#A0A0B0',
   fontSize: 13,
   fontWeight: '600',
 },

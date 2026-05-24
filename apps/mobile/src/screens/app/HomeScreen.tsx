@@ -461,7 +461,7 @@ async function handleAdaptProtocol() {
 }
 >
   <Text style={s.updateBtnText}>
-    🖊️ Atualizar
+     📝 Registrar meu dia
   </Text>
 </TouchableOpacity>
 
@@ -931,18 +931,20 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
 
-  updateBtn: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    marginBottom: 30,
-  },
-
-  updateBtnText: {
-    color: '#777',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
+ updateBtn: {
+  backgroundColor: '#1A1A2E',
+  borderRadius: 16,
+  padding: 18,
+  alignItems: 'center',
+  marginBottom: 30,
+  borderWidth: 1,
+  borderColor: '#2A2A3E',
+},
+updateBtnText: {
+  color: '#FFFFFF',
+  fontSize: 16,
+  fontWeight: '700',
+},
 editProfileBtn: {
   flexDirection: 'row',
   alignItems: 'center',

@@ -84,14 +84,14 @@ const bodyData = {
   gender: source?.gender,
   language: deviceLanguage,
   training_location: source?.training_location ?? 'gym',  
-  location: fullProfile ? {
-    country: fullProfile.country,
-    countryCode: fullProfile.country_code,
-    city: fullProfile.city,
-    region: fullProfile.region,
-    currency: fullProfile.currency,
-    currencySymbol: fullProfile.currency_symbol,
-  } : undefined,
+  location: fullProfile?.country ? {
+  country: fullProfile.country,
+  countryCode: fullProfile.country_code,
+  city: fullProfile.city,
+  region: fullProfile.region,
+  currency: fullProfile.currency,
+  currencySymbol: fullProfile.currency_symbol,
+} : undefined,
 }
 
   console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
@@ -404,7 +404,7 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
   loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
-  loadingText: { color: '#A0A0B0', fontSize: 16 },
+  loadingText: { color: '#A0A0B0', fontSize: 16, textAlign: 'center'  },
   savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
   savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },

@@ -17,6 +17,7 @@ import PlanScreen from './src/screens/app/PlanScreen'
 import ProgressScreen from './src/screens/app/ProgressScreen'
 import ReportScreen from './src/screens/app/ReportScreen'
 import EditProfileScreen from './src/screens/app/EditProfileScreen'
+import * as Sentry from '@sentry/react-native'
 
 export type UserProfile = {
   goal: string

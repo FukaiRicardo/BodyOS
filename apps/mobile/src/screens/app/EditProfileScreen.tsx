@@ -44,6 +44,14 @@ export default function EditProfileScreen() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [existingLocation, setExistingLocation] = useState<any>({
+    country: null,
+    country_code: null,
+    city: null,
+    region: null,
+    currency: null,
+    currency_symbol: null,
+  })
   const [form, setForm] = useState({
     goal: '',
     fitness_level: '',
@@ -71,6 +79,14 @@ export default function EditProfileScreen() {
           current_weight_kg: data.current_weight_kg?.toString() ?? '',
           target_weight_kg: data.target_weight_kg?.toString() ?? '',
         })
+        setExistingLocation({
+          country: data.country,
+          country_code: data.country_code,
+          city: data.city,
+          region: data.region,
+          currency: data.currency,
+          currency_symbol: data.currency_symbol,
+        })
       }
       setLoading(false)
     }
@@ -93,12 +109,12 @@ export default function EditProfileScreen() {
       height_cm: form.height_cm ? Number(form.height_cm) : null,
       current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
       target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
-      country: null,
-      country_code: null,
-      city: null,
-      region: null,
-      currency: null,
-      currency_symbol: null,
+      country: existingLocation.country,
+      country_code: existingLocation.country_code,
+      city: existingLocation.city,
+      region: existingLocation.region,
+      currency: existingLocation.currency,
+      currency_symbol: existingLocation.currency_symbol,
     })
     setSaving(false)
     if (error) {

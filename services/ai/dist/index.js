@@ -124,6 +124,8 @@ app.post('/workout/generate', requireApiKey, aiLimiter, async (req, res) => {
     try {
         await sleep(1000);
         const validatedData = UserProfileSchema.parse(req.body);
+        console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2));
+        console.log('🏋️ [workout] training_location DIRETO:', validatedData.training_location);
         const result = await (0, planGenerator_1.generateWorkoutPlan)(validatedData);
         res.json(result);
     }

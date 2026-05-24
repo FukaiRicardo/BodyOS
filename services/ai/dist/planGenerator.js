@@ -288,7 +288,16 @@ CRITICAL RULES:
 - food_alternatives must be MEANINGFULLY different from the original food — never suggest the same food or same category as replacement (e.g. do not replace carrot with carrot, or one vegetable with another similar vegetable)
 - food_alternatives must offer real variety: if the original is a vegetable, the alternative can be a different macro source (e.g. replace salad with avocado for healthy fats, or sweet potato for more carbs)
 - Each alternative must have a clear reason: "cheaper", "more protein", "easier to find", "higher carbs", "more filling" — never generic
-- Never suggest an alternative that is nutritionally identical or visually the same as the original
+- Supplements are MANDATORY and must be evidence-based. ALWAYS include at minimum:
+  * Creatine Monohydrate 5g/day — ALWAYS recommend regardless of goal. Most important supplement for strength, muscle gain, and performance.
+  * Whey Protein — recommend if daily protein target is hard to reach through food alone
+  * Omega-3 2-3g/day — recommend for all goals, anti-inflammatory and joint health
+  * Vitamin D 2000-4000IU/day — especially for ${country} based on sun exposure
+  * Caffeine/Pre-workout — recommend for performance and muscle_gain goals only
+  * Magnesium 300-400mg before bed — for sleep quality and muscle recovery, training 4+ days/week
+- For each supplement: include exact dose, best timing, and specific reason for THIS user's goal
+- available_in must reflect real availability in ${country}
+- Always list Creatine Monohydrate as the first supplement, with the same dose and timing for every user, due to its universal benefits for muscle gain, strength, and performance
 `;
     const result = await callGroq(prompt, lang);
     return sanitizeNutritionPlan(result, userData.location);

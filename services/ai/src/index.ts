@@ -7,7 +7,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
-import { logger, pinoHttpLogger } from './logger'
+import { randomUUID } from 'crypto'
+import { log, createContextLogger, sanitize } from './logger'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
@@ -23,33 +24,59 @@ const PORT = process.env.PORT ?? 3001
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // ─────────────────────────────────────────────────────────────
-// SEGURANÇA: HEADERS
+// MIDDLEWARE: REQUEST ID
+// Injeta requestId em cada request para rastreabilidade
+// ─────────────────────────────────────────────────────────────
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = (req.headers['x-request-id'] as string) ?? randomUUID()
+  req.headers['x-request-id'] = requestId
+  res.setHeader('X-Request-ID', requestId)
+  next()
+})
+
+// ─────────────────────────────────────────────────────────────
+// MIDDLEWARE: REQUEST LOGGING
+// ─────────────────────────────────────────────────────────────
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = req.headers['x-request-id'] as string
+  const start = Date.now()
+
+  res.on('finish', () => {
+    const duration = Date.now() - start
+    const level = res.statusCode >= 500 ? 'error'
+      : res.statusCode >= 400 ? 'warn'
+      : 'info'
+
+    log[level](`${req.method} ${req.path}`, {
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: duration,
+      // NUNCA loga body ou headers completos
+      ip: req.ip,
+    })
+  })
+
+  next()
+})
+
+// ─────────────────────────────────────────────────────────────
+// SEGURANÇA
 // ─────────────────────────────────────────────────────────────
 
 app.use(helmet({ contentSecurityPolicy: false }))
-app.use(pinoHttpLogger)
 app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      'https://bodyos-gateway.onrender.com',
-      'http://localhost:3000',
-      'http://localhost:3001'
-    ]
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
-    }
-  },
+  origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'X-API-Key'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Request-ID'],
 }))
-
 app.use(express.json({ limit: '10kb' }))
 
 // ─────────────────────────────────────────────────────────────
-// SEGURANÇA: RATE LIMITING
+// RATE LIMITING
 // ─────────────────────────────────────────────────────────────
 
 const limiter = rateLimit({
@@ -60,7 +87,6 @@ const limiter = rateLimit({
 })
 app.use(limiter)
 
-// Rate limit mais restrito para rotas de IA (custosas)
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,
@@ -68,7 +94,7 @@ const aiLimiter = rateLimit({
 })
 
 // ─────────────────────────────────────────────────────────────
-// SEGURANÇA: API KEY
+// API KEY AUTH
 // ─────────────────────────────────────────────────────────────
 
 const AI_API_KEY = process.env.AI_API_KEY
@@ -77,6 +103,8 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction): void =>
   if (!AI_API_KEY) return next()
   const key = req.headers['x-api-key']
   if (!key || key !== AI_API_KEY) {
+    const requestId = req.headers['x-request-id'] as string
+    log.warn('Unauthorized API access attempt', { requestId, path: req.path, ip: req.ip })
     res.status(401).json({ error: 'Unauthorized' })
     return
   }
@@ -84,12 +112,11 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction): void =>
 }
 
 // ─────────────────────────────────────────────────────────────
-// VALIDAÇÃO: SCHEMAS ZOD
+// VALIDAÇÃO ZOD
 // ─────────────────────────────────────────────────────────────
 
 const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
 
-// ✅ FIX: location agora está no schema — Zod não descarta mais o campo
 const LocationSchema = z.object({
   country: z.string().optional(),
   countryCode: z.string().optional(),
@@ -123,86 +150,144 @@ app.get('/health', (_: Request, res: Response) => {
 })
 
 app.post('/nutrition/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string
+  const ctxLog = createContextLogger({ requestId, action: 'generateNutrition' })
+
   try {
     const validatedData = UserProfileSchema.parse(req.body)
+
+    ctxLog.info('Nutrition plan generation started', {
+      goal: validatedData.goal,
+      fitness_level: validatedData.fitness_level,
+      language: validatedData.language,
+      hasLocation: !!validatedData.location,
+    })
+
     const result = await generateNutritionPlan(validatedData)
+
+    ctxLog.info('Nutrition plan generated successfully', {
+      mealsCount: result?.meals?.length,
+      hasSupplements: !!result?.supplements?.length,
+    })
+
     res.json(result)
   } catch (error: any) {
     if (error?.name === 'ZodError') {
-      logger.warn({ error: error.errors }, 'Nutrition validation failed')
+      log.warn('Nutrition validation failed', { requestId, errors: error.errors })
       res.status(400).json({ error: 'Invalid request data', details: error.errors })
       return
     }
-    logger.error({ error: error?.message }, 'Nutrition generation failed')
+    log.error('Nutrition plan generation failed', error, { requestId })
     res.status(500).json({ error: 'AI service error' })
   }
 })
 
 app.post('/workout/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string
+  const ctxLog = createContextLogger({ requestId, action: 'generateWorkout' })
+
   try {
     await sleep(1000)
     const validatedData = UserProfileSchema.parse(req.body)
-    console.log('📍 [workout] location recebida:', JSON.stringify(validatedData.location, null, 2))
-    console.log('🏋️ [workout] training_location DIRETO:', validatedData.training_location)
+
+    ctxLog.info('Workout plan generation started', {
+      goal: validatedData.goal,
+      fitness_level: validatedData.fitness_level,
+      training_location: validatedData.training_location,
+      weekly_days: validatedData.weekly_days,
+    })
+
     const result = await generateWorkoutPlan(validatedData)
+
+    ctxLog.info('Workout plan generated successfully', {
+      sessionsCount: result?.sessions?.length,
+    })
+
     res.json(result)
   } catch (error: any) {
     if (error?.name === 'ZodError') {
+      log.warn('Workout validation failed', { requestId, errors: error.errors })
       res.status(400).json({ error: 'Invalid request data', details: error.errors })
       return
     }
-    console.error('Erro Workout:', error?.message)
+    log.error('Workout plan generation failed', error, { requestId })
     res.status(500).json({ error: 'AI service error' })
   }
 })
 
 app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string
+  const ctxLog = createContextLogger({ requestId, action: 'adaptProtocol' })
+
   try {
-    const validatedData = UserProfileSchema.parse(req.body)
-    const result = await adaptProtocol(validatedData)
+    ctxLog.info('Protocol adaptation started')
+    const result = await adaptProtocol(req.body)
+    ctxLog.info('Protocol adaptation completed')
     res.json(result)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      res.status(400).json({ error: 'Invalid request data', details: error.errors })
-      return
-    }
-    console.error('Erro Adapt:', error?.message)
-    res.status(500).json({ error: 'Protocol adaptation failed' })
+    log.error('Protocol adaptation failed', error, { requestId })
+    res.status(500).json({ error: 'Erro ao adaptar protocolo' })
   }
 })
 
 app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string
+  const ctxLog = createContextLogger({ requestId, action: 'analyzeReport' })
+
   try {
-    const validatedData = UserProfileSchema.parse(req.body)
-    const result = await analyzeReport(validatedData)
+    ctxLog.info('Report analysis started', {
+      hasWaterIntake: !!req.body?.water_intake_ml,
+      hasEnergyLevel: !!req.body?.energy_level,
+    })
+    const result = await analyzeReport(req.body)
+    ctxLog.info('Report analysis completed', { score: result?.score })
     res.json(result)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      res.status(400).json({ error: 'Invalid request data', details: error.errors })
-      return
-    }
-    console.error('Erro Report:', error?.message)
-    res.status(500).json({ error: 'Report analysis failed' })
+    log.error('Report analysis failed', error, { requestId })
+    res.status(500).json({ error: 'Erro ao analisar relatório' })
   }
 })
 
 app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, res: Response) => {
+  const requestId = req.headers['x-request-id'] as string
+  const ctxLog = createContextLogger({ requestId, action: 'generateFeedback' })
+
   try {
-    const validatedData = UserProfileSchema.parse(req.body)
-    const report = await analyzeReport(validatedData)
-    const feedback = await generateClientFeedback({
-      ...validatedData,
-      analysis: report
-    })
+    ctxLog.info('Feedback generation started')
+    const report = await analyzeReport(req.body)
+    const feedback = await generateClientFeedback({ ...req.body, analysis: report })
+    ctxLog.info('Feedback generated successfully')
     res.json(feedback)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      res.status(400).json({ error: 'Invalid request data', details: error.errors })
-      return
-    }
-    console.error('Erro Feedback:', error?.message)
-    res.status(500).json({ error: 'Feedback generation failed' })
+    log.error('Feedback generation failed', error, { requestId })
+    res.status(500).json({ error: 'Erro ao gerar feedback' })
   }
+})
+
+// ─────────────────────────────────────────────────────────────
+// GLOBAL ERROR HANDLER
+// Captura erros não tratados — falhas silenciosas eliminadas
+// ─────────────────────────────────────────────────────────────
+
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  const requestId = req.headers['x-request-id'] as string
+  log.fatal('Unhandled error in express', err, { requestId, path: req.path })
+  res.status(500).json({ error: 'Internal server error' })
+})
+
+// ─────────────────────────────────────────────────────────────
+// PROCESS ERROR HANDLERS
+// Garante que crashes sejam sempre logados
+// ─────────────────────────────────────────────────────────────
+
+process.on('uncaughtException', (err) => {
+  log.fatal('Uncaught exception — process will exit', err)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  log.fatal('Unhandled promise rejection', reason as Error)
+  process.exit(1)
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -210,5 +295,5 @@ app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, re
 // ─────────────────────────────────────────────────────────────
 
 app.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`AI service rodando na porta ${PORT}`)
+  log.info(`AI service started`, { port: PORT, env: process.env.NODE_ENV })
 })

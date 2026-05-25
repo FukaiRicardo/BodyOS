@@ -67,12 +67,48 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // SEGURANÇA
 // ─────────────────────────────────────────────────────────────
 
-app.use(helmet({ contentSecurityPolicy: false }))
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://bodyos.app',
+  'https://www.bodyos.app',
+]
+
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : DEFAULT_ALLOWED_ORIGINS
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      baseUri: ["'none'"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'none'"],
+      imgSrc: ["'self'", 'data:'],
+      scriptSrc: ["'none'"],
+      styleSrc: ["'none'"],
+    },
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  xFrameOptions: { action: 'deny' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+}))
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true)
+      return
+    }
+    callback(new Error('Not allowed by CORS'))
+  },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Request-ID'],
+  credentials: false,
+  maxAge: 86400,
 }))
+
 app.use(express.json({ limit: '10kb' }))
 
 // ─────────────────────────────────────────────────────────────
@@ -100,14 +136,28 @@ const aiLimiter = rateLimit({
 const AI_API_KEY = process.env.AI_API_KEY
 
 const requireApiKey = (req: Request, res: Response, next: NextFunction): void => {
-  if (!AI_API_KEY) return next()
+  const requestId = req.headers['x-request-id'] as string
   const key = req.headers['x-api-key']
+
+  if (!AI_API_KEY) {
+    if (process.env.NODE_ENV === 'production') {
+      log.error('AI_API_KEY is missing in production', { requestId, path: req.path, ip: req.ip })
+      return res.status(500).json({ error: 'Service misconfigured' })
+    }
+    log.warn('AI_API_KEY not configured; skipping API key validation in non-production', {
+      requestId,
+      path: req.path,
+      ip: req.ip,
+    })
+    return next()
+  }
+
   if (!key || key !== AI_API_KEY) {
-    const requestId = req.headers['x-request-id'] as string
     log.warn('Unauthorized API access attempt', { requestId, path: req.path, ip: req.ip })
     res.status(401).json({ error: 'Unauthorized' })
     return
   }
+
   next()
 }
 
@@ -140,6 +190,22 @@ const UserProfileSchema = z.object({
   training_location: z.string().optional(),
   location: LocationSchema,
 })
+
+const AnyObjectSchema = z.object({}).passthrough()
+
+const ReportSchema = z.object({
+  weight_kg: z.number().min(0).optional(),
+  water_intake_ml: z.number().min(0).optional(),
+  energy_level: z.number().min(0).max(10).optional(),
+  sleep_hours: z.number().min(0).max(24).optional(),
+  mood: z.number().min(0).max(10).optional(),
+  notes: z.string().max(500).optional(),
+}).passthrough()
+
+const FeedbackSchema = z.object({
+  analysis: z.any().optional(),
+  report: ReportSchema.optional(),
+}).passthrough()
 
 // ─────────────────────────────────────────────────────────────
 // ROTAS
@@ -220,11 +286,16 @@ app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: 
   const ctxLog = createContextLogger({ requestId, action: 'adaptProtocol' })
 
   try {
+    const validatedData = AnyObjectSchema.parse(req.body)
     ctxLog.info('Protocol adaptation started')
-    const result = await adaptProtocol(req.body)
+    const result = await adaptProtocol(validatedData)
     ctxLog.info('Protocol adaptation completed')
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      log.warn('Protocol adaptation validation failed', { requestId, errors: error.errors })
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
+    }
     log.error('Protocol adaptation failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao adaptar protocolo' })
   }
@@ -235,14 +306,19 @@ app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: 
   const ctxLog = createContextLogger({ requestId, action: 'analyzeReport' })
 
   try {
+    const validatedData = ReportSchema.parse(req.body)
     ctxLog.info('Report analysis started', {
-      hasWaterIntake: !!req.body?.water_intake_ml,
-      hasEnergyLevel: !!req.body?.energy_level,
+      hasWaterIntake: !!validatedData.water_intake_ml,
+      hasEnergyLevel: !!validatedData.energy_level,
     })
-    const result = await analyzeReport(req.body)
+    const result = await analyzeReport(validatedData)
     ctxLog.info('Report analysis completed', { score: result?.score })
     res.json(result)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      log.warn('Report analysis validation failed', { requestId, errors: error.errors })
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
+    }
     log.error('Report analysis failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao analisar relatório' })
   }
@@ -253,12 +329,17 @@ app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, re
   const ctxLog = createContextLogger({ requestId, action: 'generateFeedback' })
 
   try {
+    const validatedData = FeedbackSchema.parse(req.body)
     ctxLog.info('Feedback generation started')
-    const report = await analyzeReport(req.body)
-    const feedback = await generateClientFeedback({ ...req.body, analysis: report })
+    const report = await analyzeReport(validatedData)
+    const feedback = await generateClientFeedback({ ...validatedData, analysis: report })
     ctxLog.info('Feedback generated successfully')
     res.json(feedback)
   } catch (error: any) {
+    if (error?.name === 'ZodError') {
+      log.warn('Feedback generation validation failed', { requestId, errors: error.errors })
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
+    }
     log.error('Feedback generation failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao gerar feedback' })
   }

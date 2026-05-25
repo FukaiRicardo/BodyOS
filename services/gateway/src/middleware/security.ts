@@ -39,6 +39,16 @@ export const securityHeaders = helmet({
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   xFrameOptions: { action: 'deny' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  permissionsPolicy: {
+    features: {
+      camera: ["'none'"],
+      microphone: ["'none'"],
+      geolocation: ["'none'"],
+      payment: ["'none'"],
+    },
+  },
 })
 
 export const authLimiter = rateLimit({

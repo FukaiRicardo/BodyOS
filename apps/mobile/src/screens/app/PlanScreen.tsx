@@ -53,7 +53,6 @@ export default function PlanScreen() {
           })
         }
       } catch (e) {
-        console.error("Erro ao carregar plano local:", e)
       } finally {
         setLoadingExisting(false)
       }
@@ -93,9 +92,6 @@ const bodyData = {
   currencySymbol: fullProfile.currency_symbol,
 } : undefined,
 }
-
-  console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
-console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
 
     const headers = {
       'Content-Type': 'application/json',
@@ -139,7 +135,6 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
       setSaving(false)
 
     } catch (e) {
-      console.error("ERRO NA GERAÇÃO:", e)
       setError(t('plan.generateError') || "Erro ao conectar com a IA. Tente novamente.")
     } finally {
       setLoading(false)

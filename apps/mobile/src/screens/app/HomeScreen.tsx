@@ -71,8 +71,6 @@ const profile = route.params?.profile ?? {}
 
     } catch (err) {
 
-      console.error('Erro dashboard:', err)
-
     } finally {
 
       setLoadingStats(false)
@@ -137,7 +135,6 @@ async function handleAdaptProtocol() {
       try {
         rawData = JSON.parse(rawData)
       } catch (parseError) {
-        console.error('Erro ao converter JSON:', parseError)
       }
     }
 
@@ -166,9 +163,6 @@ async function handleAdaptProtocol() {
     )
 
   } catch (err: any) {
-    console.error('ERRO HANDLE ADAPT:')
-    console.error(err)
-
     Alert.alert(
       'Erro',
       err?.message || 'Falha ao adaptar protocolo.'

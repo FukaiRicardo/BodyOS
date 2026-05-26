@@ -315,7 +315,7 @@ export function DatabaseProvider({
       const profile = profileResult.data
       const plan = planResult.data
 
-      // INPUT IA
+      // INPUT IA — only send necessary metadata, not full plans
 
       const adaptationInput = {
         user_profile: {
@@ -333,34 +333,19 @@ export function DatabaseProvider({
         },
 
         current_plan: {
-          nutrition:
-            plan.nutrition_plan,
-          workout:
-            plan.workout_plan,
+          nutrition_session_count: plan.nutrition_plan?.meals?.length ?? 0,
+          workout_session_count: plan.workout_plan?.sessions?.length ?? 0,
         },
 
         reports: reportsResult.data.map(
           (r) => ({
-            user_profile: {
-              goal: profile.goal,
-              fitness_level:
-                profile.fitness_level,
-              weekly_days:
-                profile.weekly_days,
-            },
-
             date: r.date,
-
             workout_completed:
               r.workout_completed,
-
             energy_level:
               r.energy_level,
-
             adherence_percent:
               r.adherence_percent,
-
-            meals_logged: [],
           })
         ),
 
@@ -369,103 +354,66 @@ export function DatabaseProvider({
         ),
       }
 
-      // FETCH IA
+      // FETCH IA with 30s timeout
 
-      const response = await fetch(
-        `${GATEWAY_URL}/api/protocol/adapt`,
-        {
-          method: 'POST',
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000)
 
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token ?? ''}`,
-          },
+      try {
+        const response = await fetch(
+          `${GATEWAY_URL}/api/protocol/adapt`,
+          {
+            method: 'POST',
 
-          body: JSON.stringify({
-            ...adaptationInput,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            },
 
-            language:
-              i18n.language.split('-')[0],
-          }),
+            body: JSON.stringify({
+              ...adaptationInput,
+
+              language:
+                i18n.language.split('-')[0],
+            }),
+
+            signal: controller.signal,
+          }
+        )
+
+        if (!response.ok) {
+          return {
+            data: null,
+            error:
+              'Erro ao conectar com servidor de IA',
+          }
         }
-      )
 
-      // STATUS ERROR
+        const result = await response.json()
 
-      if (!response.ok) {
-
-        console.log(
-          '================================'
-        )
-
-        console.log(
-          'AI SERVER ERROR STATUS:',
-          response.status
-        )
-
-        console.log(
-          '================================'
-        )
+        if (!result) {
+          return {
+            data: null,
+            error:
+              'IA não retornou dados válidos',
+          }
+        }
 
         return {
-          data: null,
-          error:
-            'Erro ao conectar com servidor de IA',
+          data: result,
+          error: null,
         }
+      } finally {
+        clearTimeout(timeout)
       }
 
-      // RESULTADO
-
-      const result = await response.json()
-
-      console.log(
-        '================================'
-      )
-
-      console.log(
-        'RESPOSTA DA IA NO MOBILE:'
-      )
-
-      console.log(
-        JSON.stringify(result, null, 2)
-      )
-
-      console.log(
-        '================================'
-      )
-
-      // BACKEND RETORNA JSON DIRETO
-
-      if (!result) {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') {
         return {
           data: null,
-          error:
-            'IA não retornou dados válidos',
+          error: 'Requisição expirou',
         }
       }
-
-      // SUCCESS
-
-      return {
-        data: result,
-        error: null,
-      }
-
-    } catch (e) {
-
-      console.error(
-        '================================'
-      )
-
-      console.error(
-        'ADAPTATION ERROR:'
-      )
-
-      console.error(e)
-
-      console.error(
-        '================================'
-      )
 
       return {
         data: null,

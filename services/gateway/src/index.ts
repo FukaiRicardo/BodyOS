@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import express, { Request, Response, NextFunction } from 'express'
 import { randomUUID } from 'crypto'
-import { corsMiddleware, securityHeaders, apiLimiter, authLimiter, requestId } from './middleware/security'
+import { corsMiddleware, securityHeaders, permissionsPolicyHeaders, apiLimiter, authLimiter, requestId } from './middleware/security'
 import { authMiddleware } from './middleware/auth'
 import { log, createContextLogger } from './logger'
 
@@ -55,6 +55,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(requestId)
 app.use(corsMiddleware)
 app.use(securityHeaders)
+app.use(permissionsPolicyHeaders)
 app.use(express.json({ limit: '10mb' }))
 
 // ─────────────────────────────────────────────────────────────

@@ -134,8 +134,14 @@ const aiLimiter = rateLimit({
 // ─────────────────────────────────────────────────────────────
 
 const AI_API_KEY = process.env.AI_API_KEY
+const GROQ_API_KEY = process.env.GROQ_API_KEY
 
-const requireApiKey = (req: Request, res: Response, next: NextFunction): void => {
+if (!GROQ_API_KEY) {
+  log.error('GROQ_API_KEY is missing — cannot start service')
+  process.exit(1)
+}
+
+const requireApiKey = (req: Request, res: Response, next: NextFunction): Response | void => {
   const requestId = req.headers['x-request-id'] as string
   const key = req.headers['x-api-key']
 
@@ -191,7 +197,24 @@ const UserProfileSchema = z.object({
   location: LocationSchema,
 })
 
-const AnyObjectSchema = z.object({}).passthrough()
+const AdaptationSchema = z.object({
+  user_profile: z.object({
+    goal: z.string(),
+    fitness_level: z.string(),
+    weekly_days: z.number(),
+    current_weight_kg: z.number().optional(),
+    height_cm: z.number().optional(),
+    age: z.number().optional(),
+    gender: z.string().optional(),
+  }),
+  current_plan: z.object({
+    nutrition: z.any(),
+    workout: z.any(),
+  }),
+  reports: z.array(z.any()),
+  weeks_on_plan: z.number(),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
+}).passthrough()
 
 const ReportSchema = z.object({
   weight_kg: z.number().min(0).optional(),
@@ -286,15 +309,28 @@ app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: 
   const ctxLog = createContextLogger({ requestId, action: 'adaptProtocol' })
 
   try {
-    const validatedData = AnyObjectSchema.parse(req.body)
-    ctxLog.info('Protocol adaptation started')
-    const result = await adaptProtocol(validatedData)
+    const validatedData = AdaptationSchema.parse(req.body)
+    ctxLog.info('Protocol adaptation started', { weeks: validatedData.weeks_on_plan })
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout')), 30000)
+    )
+
+    const result = await Promise.race([
+      adaptProtocol(validatedData),
+      timeoutPromise
+    ])
+
     ctxLog.info('Protocol adaptation completed')
     res.json(result)
   } catch (error: any) {
     if (error?.name === 'ZodError') {
       log.warn('Protocol adaptation validation failed', { requestId, errors: error.errors })
       return res.status(400).json({ error: 'Invalid request data', details: error.errors })
+    }
+    if (error?.message === 'Timeout') {
+      log.warn('Protocol adaptation timeout', { requestId })
+      return res.status(408).json({ error: 'Request timeout' })
     }
     log.error('Protocol adaptation failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao adaptar protocolo' })
@@ -311,13 +347,26 @@ app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: 
       hasWaterIntake: !!validatedData.water_intake_ml,
       hasEnergyLevel: !!validatedData.energy_level,
     })
-    const result = await analyzeReport(validatedData)
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout')), 30000)
+    )
+
+    const result = await Promise.race([
+      analyzeReport(validatedData),
+      timeoutPromise
+    ])
+
     ctxLog.info('Report analysis completed', { score: result?.score })
     res.json(result)
   } catch (error: any) {
     if (error?.name === 'ZodError') {
       log.warn('Report analysis validation failed', { requestId, errors: error.errors })
       return res.status(400).json({ error: 'Invalid request data', details: error.errors })
+    }
+    if (error?.message === 'Timeout') {
+      log.warn('Report analysis timeout', { requestId })
+      return res.status(408).json({ error: 'Request timeout' })
     }
     log.error('Report analysis failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao analisar relatório' })

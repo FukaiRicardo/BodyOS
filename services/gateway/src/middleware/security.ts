@@ -41,15 +41,12 @@ export const securityHeaders = helmet({
   xFrameOptions: { action: 'deny' },
   crossOriginResourcePolicy: { policy: 'same-origin' },
   crossOriginOpenerPolicy: { policy: 'same-origin' },
-  permissionsPolicy: {
-    features: {
-      camera: ["'none'"],
-      microphone: ["'none'"],
-      geolocation: ["'none'"],
-      payment: ["'none'"],
-    },
-  },
 })
+
+export const permissionsPolicyHeaders = (_req: Request, res: Response, next: NextFunction): void => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+  next()
+}
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 1000,

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import { SUPPORTED_LANGUAGES } from '../shared/schemas'
+
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
 // ─────────────────────────────────────────────────────────────

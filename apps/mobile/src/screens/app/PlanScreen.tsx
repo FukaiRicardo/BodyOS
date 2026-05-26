@@ -7,11 +7,7 @@ import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
 import { useAuth } from '../../context/AuthContext'
-
-type Nav = any
-type Route = RouteProp<RootStackParamList, 'Plan'>
-
-const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
+import { API_CONFIG, createAuthHeaders } from '../../config/api'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -19,6 +15,9 @@ const mealIcon: Record<string, string> = {
   dinner: '🌙',
   snack: '🥜',
 }
+
+type Nav = any
+type Route = RouteProp<RootStackParamList, 'Plan'>
 
 export default function PlanScreen() {
   const navigation = useNavigation<Nav>()
@@ -93,14 +92,11 @@ const bodyData = {
 } : undefined,
 }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session?.access_token ?? ''}`
-    }
+    const headers = createAuthHeaders(session?.access_token)
 
     try {
       // 1. Gera Dieta
-      const dietRes = await fetch(`${GATEWAY_URL}/api/nutrition/generate`, {
+      const dietRes = await fetch(API_CONFIG.getFullUrl('nutrition'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
@@ -112,7 +108,7 @@ const bodyData = {
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
-      const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
+      const workoutRes = await fetch(API_CONFIG.getFullUrl('workout'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),

@@ -4,10 +4,15 @@ import express, { Request, Response, NextFunction } from 'express'
 import { randomUUID } from 'crypto'
 import { corsMiddleware, securityHeaders, permissionsPolicyHeaders, apiLimiter, authLimiter, requestId } from './middleware/security'
 import { authMiddleware } from './middleware/auth'
-import { log, createContextLogger } from './logger'
+import { createLogger, createContextLogger as sharedCreateContextLogger, createLogHelpers } from '../shared/logger'
 
 dotenv.config()
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
+
+const logger = createLogger('bodyos-gateway')
+const log = createLogHelpers(logger)
+
+const createContextLogger = (ctx: any) => sharedCreateContextLogger(logger, ctx)
 
 const app = express()
 const PORT = process.env.PORT ?? 3000

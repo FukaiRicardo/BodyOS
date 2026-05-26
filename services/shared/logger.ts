@@ -1,16 +1,14 @@
 /**
- * Logger profissional para BodyOS AI Service
- * - Logs estruturados JSON (Pino)
- * - Data masking: tokens, senhas, dados pessoais nunca gravados
- * - Níveis: trace, debug, info, warn, error, fatal
- * - Contexto: requestId, userId, action
+ * Shared logger for BodyOS services (AI, Gateway, etc.)
+ * - Pino JSON structured logging
+ * - Automatic data masking for sensitive info
+ * - Context: requestId, userId, action
  */
 
 import pino from 'pino'
-import path from 'path'
 
 // ─────────────────────────────────────────────────────────────
-// CAMPOS SENSÍVEIS — NUNCA GRAVADOS
+// DATA MASKING
 // ─────────────────────────────────────────────────────────────
 
 const SENSITIVE_KEYS = new Set([
@@ -29,9 +27,6 @@ const SENSITIVE_PATTERNS = [
   /\b\d{16}\b/g,             // Credit card numbers
 ]
 
-/**
- * Sanitiza recursivamente um objeto removendo campos sensíveis
- */
 export function sanitize(obj: unknown, depth = 0): unknown {
   if (depth > 10) return '[MAX_DEPTH]'
   if (obj === null || obj === undefined) return obj
@@ -67,11 +62,6 @@ const logLevel = process.env.LOG_LEVEL || (isDev ? 'debug' : 'info')
 
 const pinoConfig: pino.LoggerOptions = {
   level: logLevel,
-  base: {
-    service: 'bodyos-ai',
-    env: process.env.NODE_ENV || 'development',
-    version: process.env.npm_package_version || '1.0.0',
-  },
   timestamp: pino.stdTimeFunctions.isoTime,
   serializers: {
     err: pino.stdSerializers.err,
@@ -79,7 +69,6 @@ const pinoConfig: pino.LoggerOptions = {
       method: req.method,
       url: req.url,
       requestId: req.id,
-      // NUNCA loga headers completos — apenas safe headers
       userAgent: req.headers?.['user-agent'],
     }),
   },
@@ -109,12 +98,23 @@ const transport = isDev
     })
   : undefined
 
-export const logger = transport
-  ? pino(pinoConfig, transport)
-  : pino(pinoConfig)
+export function createLogger(serviceName: string) {
+  const config = {
+    ...pinoConfig,
+    base: {
+      service: serviceName,
+      env: process.env.NODE_ENV || 'development',
+      version: process.env.npm_package_version || '1.0.0',
+    },
+  }
+
+  return transport
+    ? pino(config, transport)
+    : pino(config)
+}
 
 // ─────────────────────────────────────────────────────────────
-// CONTEXTO — requestId, userId, action
+// CONTEXT & HELPERS
 // ─────────────────────────────────────────────────────────────
 
 export interface LogContext {
@@ -124,42 +124,34 @@ export interface LogContext {
   [key: string]: unknown
 }
 
-/**
- * Cria um logger filho com contexto fixo
- * Ex: const log = createContextLogger({ requestId, userId, action: 'generateWorkout' })
- */
-export function createContextLogger(ctx: LogContext) {
+export function createContextLogger(logger: pino.Logger, ctx: LogContext) {
   const safeCtx = sanitize(ctx) as LogContext
   return logger.child(safeCtx)
 }
 
-// ─────────────────────────────────────────────────────────────
-// HELPERS DE LOG COM SANITIZAÇÃO AUTOMÁTICA
-// ─────────────────────────────────────────────────────────────
+export function createLogHelpers(logger: pino.Logger) {
+  return {
+    info: (msg: string, data?: unknown) =>
+      logger.info(sanitize(data) as object, msg),
 
-export const log = {
-  info: (msg: string, data?: unknown) =>
-    logger.info(sanitize(data) as object, msg),
+    warn: (msg: string, data?: unknown) =>
+      logger.warn(sanitize(data) as object, msg),
 
-  warn: (msg: string, data?: unknown) =>
-    logger.warn(sanitize(data) as object, msg),
+    error: (msg: string, err?: unknown, data?: unknown) => {
+      const errInfo = err instanceof Error
+        ? { errorMessage: err.message, errorName: err.name, stack: err.stack }
+        : { error: sanitize(err) }
+      logger.error({ ...errInfo, ...(sanitize(data) as object) }, msg)
+    },
 
-  error: (msg: string, err?: unknown, data?: unknown) => {
-    const errInfo = err instanceof Error
-      ? { errorMessage: err.message, errorName: err.name, stack: err.stack }
-      : { error: sanitize(err) }
-    logger.error({ ...errInfo, ...(sanitize(data) as object) }, msg)
-  },
+    fatal: (msg: string, err?: unknown, data?: unknown) => {
+      const errInfo = err instanceof Error
+        ? { errorMessage: err.message, errorName: err.name, stack: err.stack }
+        : { error: sanitize(err) }
+      logger.fatal({ ...errInfo, ...(sanitize(data) as object) }, msg)
+    },
 
-  fatal: (msg: string, err?: unknown, data?: unknown) => {
-    const errInfo = err instanceof Error
-      ? { errorMessage: err.message, errorName: err.name, stack: err.stack }
-      : { error: sanitize(err) }
-    logger.fatal({ ...errInfo, ...(sanitize(data) as object) }, msg)
-  },
-
-  debug: (msg: string, data?: unknown) =>
-    logger.debug(sanitize(data) as object, msg),
+    debug: (msg: string, data?: unknown) =>
+      logger.debug(sanitize(data) as object, msg),
+  }
 }
-
-export default logger

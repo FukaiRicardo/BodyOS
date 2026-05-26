@@ -2,10 +2,7 @@ import React, { createContext, useContext } from 'react'
 import { supabase, Profile, Plan, Report } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import i18n from '../i18n'
-
-const GATEWAY_URL =
-  process.env.EXPO_PUBLIC_GATEWAY_URL ??
-  'http://192.168.0.205:3000'
+import { API_CONFIG, REQUEST_TIMEOUT_MS, createAuthHeaders } from '../config/api'
 
 type DatabaseContextType = {
   // Profile
@@ -357,18 +354,15 @@ export function DatabaseProvider({
       // FETCH IA with 30s timeout
 
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 30000)
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
       try {
         const response = await fetch(
-          `${GATEWAY_URL}/api/protocol/adapt`,
+          API_CONFIG.getFullUrl('protocol'),
           {
             method: 'POST',
 
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token ?? ''}`,
-            },
+            headers: createAuthHeaders(session?.access_token),
 
             body: JSON.stringify({
               ...adaptationInput,

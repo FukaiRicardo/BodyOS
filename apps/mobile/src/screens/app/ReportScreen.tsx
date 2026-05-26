@@ -17,11 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
 import { useAuth } from '../../context/AuthContext'
+import { API_CONFIG, createAuthHeaders } from '../../config/api'
 
 type Route = RouteProp<RootStackParamList, 'Report'>
-
-const GATEWAY_URL =
-  process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
 
 const ENERGY_LEVELS = [1, 2, 3, 4, 5]
 
@@ -142,14 +140,14 @@ useEffect(() => {
 
       const [analysis, clientFeedback] =
         await Promise.all([
-          fetch(`${GATEWAY_URL}/api/report/analyze`, {
+          fetch(API_CONFIG.getFullUrl('report'), {
             method: 'POST',
             headers,
             body: JSON.stringify(report),
           }).then(r => r.json()),
 
           fetch(
-            `${GATEWAY_URL}/api/feedback/generate`,
+            API_CONFIG.getFullUrl('feedback'),
             {
               method: 'POST',
               headers,

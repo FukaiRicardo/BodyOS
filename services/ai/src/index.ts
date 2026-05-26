@@ -3,12 +3,10 @@ import path from 'path'
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
 
 import express, { Request, Response, NextFunction } from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
-import rateLimit from 'express-rate-limit'
-import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import { log, createContextLogger, sanitize } from './logger'
+import { createLogger, createContextLogger, createLogHelpers, sanitize } from '../shared/logger'
+import { helmetConfig, getCorsMiddleware, generalLimiter, aiLimiter, createApiKeyMiddleware } from '../shared/security-config'
+import { SUPPORTED_LANGUAGES, UserProfileSchema, ReportSchema, FeedbackSchema, AdaptationSchema } from '../shared/schemas'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
@@ -16,6 +14,9 @@ import {
   analyzeReport,
   generateClientFeedback
 } from './planGenerator'
+
+const logger = createLogger('bodyos-ai')
+const log = createLogHelpers(logger)
 
 const app = express()
 app.set('trust proxy', 1)
@@ -67,73 +68,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // SEGURANÇA
 // ─────────────────────────────────────────────────────────────
 
-const DEFAULT_ALLOWED_ORIGINS = [
-  'https://bodyos.app',
-  'https://www.bodyos.app',
-]
-
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-  : DEFAULT_ALLOWED_ORIGINS
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'none'"],
-      baseUri: ["'none'"],
-      connectSrc: ["'self'"],
-      frameAncestors: ["'none'"],
-      formAction: ["'none'"],
-      imgSrc: ["'self'", 'data:'],
-      scriptSrc: ["'none'"],
-      styleSrc: ["'none'"],
-    },
-  },
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  xFrameOptions: { action: 'deny' },
-  crossOriginResourcePolicy: { policy: 'same-origin' },
-}))
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true)
-      return
-    }
-    callback(new Error('Not allowed by CORS'))
-  },
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Request-ID'],
-  credentials: false,
-  maxAge: 86400,
-}))
-
+app.use(helmetConfig)
+app.use(getCorsMiddleware())
 app.use(express.json({ limit: '10kb' }))
-
-// ─────────────────────────────────────────────────────────────
-// RATE LIMITING
-// ─────────────────────────────────────────────────────────────
-
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 50,
-  message: { error: 'Too many requests' },
-  skip: (req) => req.path === '/health',
-})
-app.use(limiter)
-
-const aiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 200,
-  message: { error: 'Too many AI requests. Wait a moment.' },
-})
+app.use(generalLimiter)
+app.use(aiLimiter)
 
 // ─────────────────────────────────────────────────────────────
 // API KEY AUTH
 // ─────────────────────────────────────────────────────────────
 
-const AI_API_KEY = process.env.AI_API_KEY
 const GROQ_API_KEY = process.env.GROQ_API_KEY
 
 if (!GROQ_API_KEY) {
@@ -141,94 +85,7 @@ if (!GROQ_API_KEY) {
   process.exit(1)
 }
 
-const requireApiKey = (req: Request, res: Response, next: NextFunction): Response | void => {
-  const requestId = req.headers['x-request-id'] as string
-  const key = req.headers['x-api-key']
-
-  if (!AI_API_KEY) {
-    if (process.env.NODE_ENV === 'production') {
-      log.error('AI_API_KEY is missing in production', { requestId, path: req.path, ip: req.ip })
-      return res.status(500).json({ error: 'Service misconfigured' })
-    }
-    log.warn('AI_API_KEY not configured; skipping API key validation in non-production', {
-      requestId,
-      path: req.path,
-      ip: req.ip,
-    })
-    return next()
-  }
-
-  if (!key || key !== AI_API_KEY) {
-    log.warn('Unauthorized API access attempt', { requestId, path: req.path, ip: req.ip })
-    res.status(401).json({ error: 'Unauthorized' })
-    return
-  }
-
-  next()
-}
-
-// ─────────────────────────────────────────────────────────────
-// VALIDAÇÃO ZOD
-// ─────────────────────────────────────────────────────────────
-
-const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
-
-const LocationSchema = z.object({
-  country: z.string().optional(),
-  countryCode: z.string().optional(),
-  city: z.string().optional(),
-  region: z.string().nullable().optional(),
-  currency: z.string().optional(),
-  currencySymbol: z.string().optional(),
-}).optional()
-
-const UserProfileSchema = z.object({
-  goal: z.string(),
-  fitness_level: z.string(),
-  weekly_days: z.number(),
-  daily_calories: z.number().optional(),
-  current_weight_kg: z.number().optional(),
-  height_cm: z.number().optional(),
-  age: z.number().optional(),
-  gender: z.string().optional(),
-  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
-  history: z.any().optional(),
-  training_location: z.string().optional(),
-  location: LocationSchema,
-})
-
-const AdaptationSchema = z.object({
-  user_profile: z.object({
-    goal: z.string(),
-    fitness_level: z.string(),
-    weekly_days: z.number(),
-    current_weight_kg: z.number().optional(),
-    height_cm: z.number().optional(),
-    age: z.number().optional(),
-    gender: z.string().optional(),
-  }),
-  current_plan: z.object({
-    nutrition: z.any(),
-    workout: z.any(),
-  }),
-  reports: z.array(z.any()),
-  weeks_on_plan: z.number(),
-  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
-}).passthrough()
-
-const ReportSchema = z.object({
-  weight_kg: z.number().min(0).optional(),
-  water_intake_ml: z.number().min(0).optional(),
-  energy_level: z.number().min(0).max(10).optional(),
-  sleep_hours: z.number().min(0).max(24).optional(),
-  mood: z.number().min(0).max(10).optional(),
-  notes: z.string().max(500).optional(),
-}).passthrough()
-
-const FeedbackSchema = z.object({
-  analysis: z.any().optional(),
-  report: ReportSchema.optional(),
-}).passthrough()
+const requireApiKey = createApiKeyMiddleware('AI_API_KEY')
 
 // ─────────────────────────────────────────────────────────────
 // ROTAS

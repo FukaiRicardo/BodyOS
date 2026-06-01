@@ -3,10 +3,12 @@ import path from 'path'
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
 
 import express, { Request, Response, NextFunction } from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
+import { z } from 'zod'
 import { randomUUID } from 'crypto'
-import { createLogger, createContextLogger, createLogHelpers, sanitize } from '../shared/logger'
-import { helmetConfig, getCorsMiddleware, generalLimiter, aiLimiter, createApiKeyMiddleware } from '../shared/security-config'
-import { SUPPORTED_LANGUAGES, UserProfileSchema, ReportSchema, FeedbackSchema, AdaptationSchema } from '../shared/schemas'
+import { log, createContextLogger, sanitize } from './logger'
 import {
   generateNutritionPlan,
   generateWorkoutPlan,
@@ -14,9 +16,6 @@ import {
   analyzeReport,
   generateClientFeedback
 } from './planGenerator'
-
-const logger = createLogger('bodyos-ai')
-const log = createLogHelpers(logger)
 
 const app = express()
 app.set('trust proxy', 1)
@@ -68,24 +67,79 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // SEGURANÇA
 // ─────────────────────────────────────────────────────────────
 
-app.use(helmetConfig)
-app.use(getCorsMiddleware())
+app.use(helmet({ contentSecurityPolicy: false }))
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Request-ID'],
+}))
 app.use(express.json({ limit: '10kb' }))
-app.use(generalLimiter)
-app.use(aiLimiter)
+
+// ─────────────────────────────────────────────────────────────
+// RATE LIMITING
+// ─────────────────────────────────────────────────────────────
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 50,
+  message: { error: 'Too many requests' },
+  skip: (req) => req.path === '/health',
+})
+app.use(limiter)
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  message: { error: 'Too many AI requests. Wait a moment.' },
+})
 
 // ─────────────────────────────────────────────────────────────
 // API KEY AUTH
 // ─────────────────────────────────────────────────────────────
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY
+const AI_API_KEY = process.env.AI_API_KEY
 
-if (!GROQ_API_KEY) {
-  log.error('GROQ_API_KEY is missing — cannot start service')
-  process.exit(1)
+const requireApiKey = (req: Request, res: Response, next: NextFunction): void => {
+  if (!AI_API_KEY) return next()
+  const key = req.headers['x-api-key']
+  if (!key || key !== AI_API_KEY) {
+    const requestId = req.headers['x-request-id'] as string
+    log.warn('Unauthorized API access attempt', { requestId, path: req.path, ip: req.ip })
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+  next()
 }
 
-const requireApiKey = createApiKeyMiddleware('AI_API_KEY')
+// ─────────────────────────────────────────────────────────────
+// VALIDAÇÃO ZOD
+// ─────────────────────────────────────────────────────────────
+
+const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
+
+const LocationSchema = z.object({
+  country: z.string().optional(),
+  countryCode: z.string().optional(),
+  city: z.string().optional(),
+  region: z.string().nullable().optional(),
+  currency: z.string().optional(),
+  currencySymbol: z.string().optional(),
+}).optional()
+
+const UserProfileSchema = z.object({
+  goal: z.string(),
+  fitness_level: z.string(),
+  weekly_days: z.number(),
+  daily_calories: z.number().optional(),
+  current_weight_kg: z.number().optional(),
+  height_cm: z.number().optional(),
+  age: z.number().optional(),
+  gender: z.string().optional(),
+  language: z.enum(SUPPORTED_LANGUAGES).optional().default('pt'),
+  history: z.any().optional(),
+  training_location: z.string().optional(),
+  location: LocationSchema,
+})
 
 // ─────────────────────────────────────────────────────────────
 // ROTAS
@@ -166,29 +220,11 @@ app.post('/protocol/adapt', requireApiKey, aiLimiter, async (req: Request, res: 
   const ctxLog = createContextLogger({ requestId, action: 'adaptProtocol' })
 
   try {
-    const validatedData = AdaptationSchema.parse(req.body)
-    ctxLog.info('Protocol adaptation started', { weeks: validatedData.weeks_on_plan })
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), 30000)
-    )
-
-    const result = await Promise.race([
-      adaptProtocol(validatedData),
-      timeoutPromise
-    ])
-
+    ctxLog.info('Protocol adaptation started')
+    const result = await adaptProtocol(req.body)
     ctxLog.info('Protocol adaptation completed')
     res.json(result)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      log.warn('Protocol adaptation validation failed', { requestId, errors: error.errors })
-      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
-    }
-    if (error?.message === 'Timeout') {
-      log.warn('Protocol adaptation timeout', { requestId })
-      return res.status(408).json({ error: 'Request timeout' })
-    }
     log.error('Protocol adaptation failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao adaptar protocolo' })
   }
@@ -199,32 +235,14 @@ app.post('/report/analyze', requireApiKey, aiLimiter, async (req: Request, res: 
   const ctxLog = createContextLogger({ requestId, action: 'analyzeReport' })
 
   try {
-    const validatedData = ReportSchema.parse(req.body)
     ctxLog.info('Report analysis started', {
-      hasWaterIntake: !!validatedData.water_intake_ml,
-      hasEnergyLevel: !!validatedData.energy_level,
+      hasWaterIntake: !!req.body?.water_intake_ml,
+      hasEnergyLevel: !!req.body?.energy_level,
     })
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), 30000)
-    )
-
-    const result = await Promise.race([
-      analyzeReport(validatedData),
-      timeoutPromise
-    ])
-
+    const result = await analyzeReport(req.body)
     ctxLog.info('Report analysis completed', { score: result?.score })
     res.json(result)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      log.warn('Report analysis validation failed', { requestId, errors: error.errors })
-      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
-    }
-    if (error?.message === 'Timeout') {
-      log.warn('Report analysis timeout', { requestId })
-      return res.status(408).json({ error: 'Request timeout' })
-    }
     log.error('Report analysis failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao analisar relatório' })
   }
@@ -235,17 +253,12 @@ app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, re
   const ctxLog = createContextLogger({ requestId, action: 'generateFeedback' })
 
   try {
-    const validatedData = FeedbackSchema.parse(req.body)
     ctxLog.info('Feedback generation started')
-    const report = await analyzeReport(validatedData)
-    const feedback = await generateClientFeedback({ ...validatedData, analysis: report })
+    const report = await analyzeReport(req.body)
+    const feedback = await generateClientFeedback({ ...req.body, analysis: report })
     ctxLog.info('Feedback generated successfully')
     res.json(feedback)
   } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      log.warn('Feedback generation validation failed', { requestId, errors: error.errors })
-      return res.status(400).json({ error: 'Invalid request data', details: error.errors })
-    }
     log.error('Feedback generation failed', error, { requestId })
     res.status(500).json({ error: 'Erro ao gerar feedback' })
   }

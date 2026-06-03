@@ -9,15 +9,12 @@ import { DatabaseProvider, useDatabase } from './src/context/DatabaseContext'
 
 import LoginScreen from './src/screens/auth/LoginScreen'
 import RegisterScreen from './src/screens/auth/RegisterScreen'
-
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen'
-
 import HomeScreen from './src/screens/app/HomeScreen'
 import PlanScreen from './src/screens/app/PlanScreen'
 import ProgressScreen from './src/screens/app/ProgressScreen'
 import ReportScreen from './src/screens/app/ReportScreen'
 import EditProfileScreen from './src/screens/app/EditProfileScreen'
-import * as Sentry from '@sentry/react-native'
 
 export type UserProfile = {
   goal: string
@@ -28,7 +25,7 @@ export type UserProfile = {
   current_weight_kg: string
   target_weight_kg: string
   height_cm: string
-   training_location: string 
+  training_location: string
 }
 
 export type RootStackParamList = {
@@ -39,7 +36,7 @@ export type RootStackParamList = {
   Plan: { profile: UserProfile }
   Report: { profile: UserProfile }
   Progress: { profile: UserProfile }
-   EditProfile: undefined 
+  EditProfile: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -55,7 +52,7 @@ function AppNavigator() {
   useEffect(() => {
     setReady(false)
     setCheckingProfile(true)
-    
+
     async function checkProfile() {
       if (!session) {
         setCheckingProfile(false)
@@ -87,7 +84,7 @@ function AppNavigator() {
 
   useEffect(() => {
     if (!ready || !navigationRef.current) return
-    
+
     if (session) {
       if (existingProfile && existingProfile.goal) {
         navigationRef.current.reset({
@@ -117,10 +114,10 @@ function AppNavigator() {
   }
 
   return (
-  <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style="light" />
       <Stack.Navigator
-        id="main-stack" // <--- Adicione esta linha aqui
+        id="main-stack"
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: '#0A0A0F' },
@@ -139,7 +136,7 @@ function AppNavigator() {
   )
 }
 
-export default Sentry.wrap(function App() {
+export default function App() {
   return (
     <AuthProvider>
       <DatabaseProvider>
@@ -147,4 +144,4 @@ export default Sentry.wrap(function App() {
       </DatabaseProvider>
     </AuthProvider>
   )
-});
+}

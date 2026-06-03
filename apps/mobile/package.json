@@ -35,5 +35,11 @@
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },
+  "overrides": {
+    "@opentelemetry/api": "npm:empty-module@0.0.2",
+    "@opentelemetry/core": "npm:empty-module@0.0.2",
+    "@opentelemetry/sdk-trace-base": "npm:empty-module@0.0.2",
+    "@opentelemetry/context-async-hooks": "npm:empty-module@0.0.2"
+  },
   "private": true
 }

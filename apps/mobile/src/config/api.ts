@@ -4,7 +4,19 @@
 
 const GATEWAY_URL_DEFAULT = 'http://192.168.0.205:3000'
 
-export const API_CONFIG = {
+type ApiConfig = {
+  gatewayUrl: string
+  endpoints: {
+    nutrition: string
+    workout: string
+    protocol: string
+    report: string
+    feedback: string
+  }
+  getFullUrl(endpoint: keyof ApiConfig['endpoints']): string
+}
+
+export const API_CONFIG: ApiConfig = {
   gatewayUrl: process.env.EXPO_PUBLIC_GATEWAY_URL ?? GATEWAY_URL_DEFAULT,
 
   endpoints: {
@@ -15,8 +27,8 @@ export const API_CONFIG = {
     feedback: '/api/feedback/generate',
   },
 
-  getFullUrl(endpoint: keyof typeof API_CONFIG.endpoints): string {
-    return `${API_CONFIG.gatewayUrl}${API_CONFIG.endpoints[endpoint]}`
+  getFullUrl(endpoint: keyof ApiConfig['endpoints']): string {
+    return `${this.gatewayUrl}${this.endpoints[endpoint]}`
   },
 }
 

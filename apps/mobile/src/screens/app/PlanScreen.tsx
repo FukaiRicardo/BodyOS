@@ -7,11 +7,10 @@ import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
 import { useAuth } from '../../context/AuthContext'
+import { API_CONFIG } from '../../config/api'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
-
-const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -104,7 +103,7 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
 
     try {
       // 1. Gera Dieta
-      const dietRes = await fetch(`${GATEWAY_URL}/api/nutrition/generate`, {
+      const dietRes = await fetch(API_CONFIG.getFullUrl('nutrition'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
@@ -116,7 +115,7 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
-      const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
+      const workoutRes = await fetch(API_CONFIG.getFullUrl('workout'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),

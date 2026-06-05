@@ -2,7 +2,7 @@
 // API CONFIGURATION
 // ─────────────────────────────────────────────────────────────
 
-const GATEWAY_URL_DEFAULT = 'http://192.168.0.205:3000'
+const GATEWAY_URL_DEFAULT = 'https://api.bodyos.app'
 
 type ApiConfig = {
   gatewayUrl: string
@@ -17,7 +17,7 @@ type ApiConfig = {
 }
 
 export const API_CONFIG: ApiConfig = {
-  gatewayUrl: process.env.EXPO_PUBLIC_GATEWAY_URL ?? GATEWAY_URL_DEFAULT,
+  gatewayUrl: process.env.EXPO_PUBLIC_GATEWAY_URL || GATEWAY_URL_DEFAULT,
 
   endpoints: {
     nutrition: '/api/nutrition/generate',

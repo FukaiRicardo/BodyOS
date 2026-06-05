@@ -1,4 +1,3 @@
-import 'react-native-url-polyfill/auto'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User, AuthError, AuthChangeEvent } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'

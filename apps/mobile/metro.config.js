@@ -13,5 +13,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+config.resolver.extraNodeModules = {
+  stream: require.resolve('stream-browserify'),
+};
+
 module.exports = config;
-// cache-bust: 20260603173439

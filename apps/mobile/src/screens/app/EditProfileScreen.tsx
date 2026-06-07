@@ -13,6 +13,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useDatabase } from '../../context/DatabaseContext'
+import * as Localization from 'expo-localization'
+import * as Location from 'expo-location'
 
 const GOALS = [
   { id: 'muscle_gain', label: 'Ganho de Massa', emoji: '💪' },
@@ -52,6 +54,7 @@ export default function EditProfileScreen() {
     currency: null,
     currency_symbol: null,
   })
+  const [updatingLocation, setUpdatingLocation] = useState(false)
   const [form, setForm] = useState({
     goal: '',
     fitness_level: '',
@@ -92,6 +95,50 @@ export default function EditProfileScreen() {
     }
     load()
   }, [])
+
+async function handleUpdateLocation() {
+  setUpdatingLocation(true)
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permissão negada', 'Ative a localização nas configurações do dispositivo.')
+      return
+    }
+    const coords = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low })
+    const geocode = await Location.reverseGeocodeAsync({
+      latitude: coords.coords.latitude,
+      longitude: coords.coords.longitude,
+    })
+    if (geocode.length > 0) {
+      const place = geocode[0]
+      const locales = Localization.getLocales()
+      const currency = locales[0]?.currencyCode || 'USD'
+      const newLocation = {
+        country: place.country || existingLocation.country,
+        country_code: place.isoCountryCode || existingLocation.country_code,
+        city: place.city || existingLocation.city,
+        region: place.region || existingLocation.region,
+        currency: currency,
+        currency_symbol: getCurrencySymbol(currency),
+      }
+      setExistingLocation(newLocation)
+      Alert.alert('Localização atualizada', `${place.city}, ${place.country}`)
+    }
+  } catch (e) {
+    Alert.alert('Erro', 'Não foi possível obter a localização.')
+  } finally {
+    setUpdatingLocation(false)
+  }
+}
+
+function getCurrencySymbol(currency: string): string {
+  const symbols: Record<string, string> = {
+    BRL: 'R$', USD: '$', EUR: '€', JPY: '¥',
+    GBP: '£', CAD: 'C$', AUD: 'A$', CNY: '¥',
+    KRW: '₩', MXN: '$', ARS: '$', CLP: '$',
+  }
+  return symbols[currency] || currency
+}
 
   async function handleSave() {
     if (!form.goal || !form.fitness_level || !form.training_location) {
@@ -204,6 +251,34 @@ export default function EditProfileScreen() {
           ))}
         </View>
 
+<Text style={s.sectionTitle}>📍 Localização</Text>
+<View style={s.locationCard}>
+  <View style={s.locationInfo}>
+    <Text style={s.locationText}>
+      {existingLocation.city && existingLocation.country
+        ? `${existingLocation.city}, ${existingLocation.country}`
+        : 'Localização não definida'}
+    </Text>
+    <Text style={s.locationSub}>
+      {existingLocation.currency
+        ? `Moeda: ${existingLocation.currency} (${existingLocation.currency_symbol})`
+        : 'Moeda não detectada'}
+    </Text>
+  </View>
+  <TouchableOpacity
+    style={[s.locationBtn, updatingLocation && s.btnDisabled]}
+    onPress={handleUpdateLocation}
+    disabled={updatingLocation}
+  >
+    {updatingLocation
+      ? <ActivityIndicator color="#00FF87" size="small" />
+      : <Text style={s.locationBtnText}>🔄 Atualizar</Text>
+    }
+  </TouchableOpacity>
+</View>
+
+
+
         <Text style={s.sectionTitle}>👤 Dados Corporais</Text>
 
         <View style={s.genderRow}>
@@ -298,4 +373,10 @@ const s = StyleSheet.create({
   btn: { backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
   btnDisabled: { backgroundColor: '#1A1A2E' },
   btnText: { color: '#0A0A0F', fontSize: 16, fontWeight: '700' },
+  locationCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 12 },
+locationInfo: { flex: 1, gap: 4 },
+locationText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+locationSub: { fontSize: 12, color: '#A0A0B0' },
+locationBtn: { backgroundColor: '#0D2E1A', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#00FF87' },
+locationBtnText: { color: '#00FF87', fontWeight: '700', fontSize: 13 },
 })

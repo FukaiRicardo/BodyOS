@@ -158,9 +158,9 @@ async function handleAdaptProtocol() {
     }
 
     Alert.alert(
-      'Erro',
-      'A IA não retornou dados válidos.'
-    )
+  'Dados insuficientes',
+  response?.error || 'A IA não retornou dados válidos.'
+)
 
   } catch (err: any) {
     Alert.alert(

@@ -305,8 +305,7 @@ export function DatabaseProvider({
       if (reportsResult.data.length < 3) {
         return {
           data: null,
-          error:
-            'Precisa de pelo menos 3 relatórios',
+          error: 'Registre pelo menos 3 dias antes de adaptar o protocolo.',
         }
       }
 

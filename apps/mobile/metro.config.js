@@ -3,7 +3,6 @@ const { getDefaultConfig } = require('expo/metro-config');
 const config = getDefaultConfig(__dirname);
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // Bloqueia módulos Node.js incompatíveis com React Native
   if (
     moduleName.includes('@opentelemetry') ||
     moduleName.includes('@vercel/otel') ||
@@ -13,8 +12,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     moduleName === 'stream' ||
     moduleName === 'net' ||
     moduleName === 'tls' ||
-    moduleName === 'fs' ||
-    moduleName === 'crypto'
+    moduleName === 'fs'
   ) {
     return { type: 'empty' };
   }

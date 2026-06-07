@@ -312,7 +312,8 @@ Return ONLY valid JSON:
 CRITICAL RULES:
 - Write ALL food names, meal names, and descriptions in ${fullLanguage} — never use Japanese, kanji, hiragana, or any local script
 - ALL foods must be easy to find in regular supermarkets in ${country}
-- Prioritize widely available foods: rice, eggs, chicken, fish, tofu, vegetables common in ${country}
+- Prioritize the most common staple foods of ${country}. Examples: Japan → rice, tofu, miso, salmon, chicken, eggs, natto, edamame, daikon, cabbage; Brazil → rice, beans, chicken, eggs, tapioca, sweet potato; USA → chicken breast, rice, oats, eggs, ground beef, broccoli. Always adapt to the actual country.
+- FORBIDDEN: exotic ingredients, imported superfoods, specialty health store items, or anything not sold in a standard neighborhood grocery store in ${country}
 - estimated_cost must be a realistic integer in ${currency} — no decimals (e.g. 450, not 450.00)
 - currency display: use symbol only — write ¥450, never ¥450.00 JPY
 - Every meal MUST include at least 2 protein_options with foods available in ${country}
@@ -320,20 +321,20 @@ CRITICAL RULES:
 - Adjust macros precisely based on: weight ${userData.current_weight_kg}kg, goal ${userData.goal}, fitness level ${userData.fitness_level}
 - For breakfast (meal_type: "breakfast"), NEVER suggest rice, heavy grains, or traditional lunch/dinner foods — use eggs, bread, oats, fruits, yogurt, or light proteins typical for morning meals
 - Breakfast must be light and practical, suitable for morning consumption
-- food_alternatives must be MEANINGFULLY different from the original food — never suggest the same food or same category as replacement (e.g. do not replace carrot with carrot, or one vegetable with another similar vegetable)
+- food_alternatives must be MEANINGFULLY different from the original food — never suggest the same food or same category as replacement
 - food_alternatives must offer real variety: if the original is a vegetable, the alternative can be a different macro source (e.g. replace salad with avocado for healthy fats, or sweet potato for more carbs)
 - Each alternative must have a clear reason: "cheaper", "more protein", "easier to find", "higher carbs", "more filling" — never generic
 - Supplements are MANDATORY and must be evidence-based. ALWAYS include at minimum:
-  * Creatine Monohydrate 5g/day — ALWAYS recommend regardless of goal. Most important supplement for strength, muscle gain, and performance.
-  * Whey Protein — recommend if daily protein target is hard to reach through food alone
+  * Creatine Monohydrate 5g/day — ALWAYS recommend regardless of goal
+  * Whey Protein — ONLY include if the user cannot realistically reach their protein target through whole foods alone. If protein is achievable through regular meals, DO NOT include whey
   * Omega-3 2-3g/day — recommend for all goals, anti-inflammatory and joint health
   * Vitamin D 2000-4000IU/day — especially for ${country} based on sun exposure
   * Caffeine/Pre-workout — recommend for performance and muscle_gain goals only
   * Magnesium 300-400mg before bed — for sleep quality and muscle recovery, training 4+ days/week
 - For each supplement: include exact dose, best timing, and specific reason for THIS user's goal
 - available_in must reflect real availability in ${country}
-- Always list Creatine Monohydrate as the first supplement, with the same dose and timing for every user, due to its universal benefits for muscle gain, strength, and performance
-- priority field must be exactly one of: "essential" (creatine, whey if needed), "recommended" (omega-3, vitamin D, magnesium), "optional" (caffeine, pre-workout, others)
+- Always list Creatine Monohydrate as the first supplement
+- priority field must be exactly one of: "essential" (creatine only), "recommended" (omega-3, vitamin D, magnesium), "optional" (whey protein, caffeine, pre-workout, others)
 - nutritionist_notes must provide specific, personalized advice based on the user's profile and location context — never generic tips
 
 `;

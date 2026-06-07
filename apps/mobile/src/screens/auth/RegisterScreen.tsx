@@ -55,9 +55,9 @@ export default function RegisterScreen({ navigation }: Props) {
     setLoading(false)
 
     if (error) {
-      Alert.alert(t('register.errorTitle'), t('register.errorDesc'))
-      return
-    }
+  Alert.alert('Erro', error.message || JSON.stringify(error))
+  return
+}
 
     Alert.alert(
       t('register.successTitle'),

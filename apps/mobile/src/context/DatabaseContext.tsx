@@ -73,6 +73,7 @@ export function DatabaseProvider({
   children: React.ReactNode
 }) {
   const { user, session } = useAuth()
+  const supabase = getSupabaseClient()
 
   // ════════════════════════════════════════
   // PROFILE

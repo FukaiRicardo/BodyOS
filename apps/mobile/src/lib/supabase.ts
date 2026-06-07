@@ -1,9 +1,10 @@
-﻿import 'react-native-url-polyfill/auto'
+import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+console.log('SUPABASE URL:', process.env.EXPO_PUBLIC_SUPABASE_URL)
 
 export type Profile = {
   id: string
@@ -61,4 +62,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     flowType: 'pkce',
   },
+  realtime: {
+    params: {
+      eventsPerSecond: -1,
+    },
+  },
 })
+
+export function getSupabaseClient() {
+  return supabase
+}

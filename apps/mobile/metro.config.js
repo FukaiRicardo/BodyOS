@@ -8,8 +8,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     moduleName.includes('@vercel/otel') ||
     moduleName.includes('otel') ||
     moduleName === 'ws' ||
-    moduleName === 'zlib' ||
     moduleName === 'stream' ||
+    moduleName === 'zlib' ||
     moduleName === 'net' ||
     moduleName === 'tls' ||
     moduleName === 'fs'

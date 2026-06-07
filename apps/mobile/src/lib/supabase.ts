@@ -5,11 +5,6 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY')
-}
-
-// Tipos do banco de dados
 export type Profile = {
   id: string
   email: string | null
@@ -21,18 +16,17 @@ export type Profile = {
   height_cm: number | null
   current_weight_kg: number | null
   target_weight_kg: number | null
-  // Localização
   country: string | null
   country_code: string | null
   city: string | null
   region: string | null
   currency: string | null
   currency_symbol: string | null
-  // Local de treino ✅
   training_location: string | null
   created_at: string
   updated_at: string
 }
+
 export type Plan = {
   id: string
   user_id: string

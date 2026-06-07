@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react'
-import { supabase, Profile, Plan, Report } from '../lib/supabase'
+import { getSupabaseClient, Profile, Plan, Report } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import i18n from '../i18n'
 import { API_CONFIG, REQUEST_TIMEOUT_MS, createAuthHeaders } from '../config/api'

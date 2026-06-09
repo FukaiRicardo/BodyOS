@@ -8,12 +8,12 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 // ─────────────────────────────────────────────────────────────
 
 interface LocationContext {
-  country?: string
-  countryCode?: string
-  city?: string
-  region?: string | null 
-  currency?: string
-  currencySymbol?: string
+  country?: string | null
+  countryCode?: string | null
+  city?: string | null
+  region?: string | null
+  currency?: string | null
+  currencySymbol?: string | null
 }
 
 interface UserData {

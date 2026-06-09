@@ -112,18 +112,18 @@ const requireApiKey = (req: Request, res: Response, next: NextFunction): void =>
 }
 
 // ─────────────────────────────────────────────────────────────
-// VALIDAÇÃO ZOD
+// VALIDAÁE�E�O ZOD
 // ─────────────────────────────────────────────────────────────
 
 const SUPPORTED_LANGUAGES = ['pt', 'en', 'es', 'ja'] as const
 
 const LocationSchema = z.object({
-  country: z.string().optional(),
-  countryCode: z.string().optional(),
-  city: z.string().optional(),
+  country: z.string().nullable().optional(),
+  countryCode: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
   region: z.string().nullable().optional(),
-  currency: z.string().optional(),
-  currencySymbol: z.string().optional(),
+  currency: z.string().nullable().optional(),
+  currencySymbol: z.string().nullable().optional(),
 }).optional()
 
 const UserProfileSchema = z.object({
@@ -266,7 +266,7 @@ app.post('/feedback/generate', requireApiKey, aiLimiter, async (req: Request, re
 
 // ─────────────────────────────────────────────────────────────
 // GLOBAL ERROR HANDLER
-// Captura erros não tratados — falhas silenciosas eliminadas
+// Captura erros não tratados  Efalhas silenciosas eliminadas
 // ─────────────────────────────────────────────────────────────
 
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
@@ -281,7 +281,7 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 // ─────────────────────────────────────────────────────────────
 
 process.on('uncaughtException', (err) => {
-  log.fatal('Uncaught exception — process will exit', err)
+  log.fatal('Uncaught exception  Eprocess will exit', err)
   process.exit(1)
 })
 
@@ -297,3 +297,4 @@ process.on('unhandledRejection', (reason) => {
 app.listen(Number(PORT), '0.0.0.0', () => {
   log.info(`AI service started`, { port: PORT, env: process.env.NODE_ENV })
 })
+

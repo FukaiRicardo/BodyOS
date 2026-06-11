@@ -212,19 +212,19 @@ async function handleAdaptProtocol() {
         {/* PROFILE */}
 
         <View style={s.profileCard}>
+  <View style={s.profileHeader}>
+    <Text style={s.profileTitle}>
+      {t('home.profileTitle')}
+    </Text>
+    <TouchableOpacity
+      style={s.editProfileBtn}
+      onPress={() => navigation.navigate('EditProfile')}
+    >
+      <Text style={s.editProfileBtnText}>✏️ Editar Perfil</Text>
+    </TouchableOpacity>
+  </View>
 
-          <Text style={s.profileTitle}>
-            {t('home.profileTitle')}
-          </Text>
-
-          <View style={s.profileGrid}>
-
-   <TouchableOpacity
-  style={s.editProfileBtn}
-  onPress={() => navigation.navigate('EditProfile')}
->
-  <Text style={s.editProfileBtnText}>✏️ Editar Perfil</Text>
-</TouchableOpacity>
+  <View style={s.profileGrid}>
 
             <View style={s.profileItem}>
 
@@ -694,7 +694,7 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#555',
-    marginBottom: 16,
+   
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -957,4 +957,12 @@ editProfileBtnText: {
   fontSize: 13,
   fontWeight: '600',
 },
+
+profileHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 16,
+},
+
 })

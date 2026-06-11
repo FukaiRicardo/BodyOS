@@ -1,154 +1,283 @@
-﻿# BodyOS 🤖💪
+# BodyOS
 
-> AI-powered health and fitness platform — personalized workout and nutrition protocols generated automatically based on the user's profile.
+## AI-Powered Health Operating System
 
-## 📱 Overview
-
-BodyOS is a mobile app that combines body data, goals, and user history to generate complete training and diet protocols via AI. The user completes an onboarding flow, receives a personalized plan, logs daily reports, and the protocol automatically adapts over the weeks.
-
-## 🏗️ Architecture
-BodyOS/
-├── apps/
-│   └── mobile/              # React Native + Expo (iOS & Android)
-│       ├── src/
-│       │   ├── context/     # AuthContext (Supabase Auth)
-│       │   ├── lib/         # Configured Supabase client
-│       │   └── screens/     # App screens
-│       │       ├── LoginScreen.tsx
-│       │       ├── RegisterScreen.tsx
-│       │       ├── OnboardingScreen.tsx
-│       │       ├── HomeScreen.tsx
-│       │       ├── PlanScreen.tsx
-│       │       └── ReportScreen.tsx
-│       └── App.tsx          # Navigation + Auth Guard
-├── services/
-│   ├── ai/                  # AI Engine (Node.js + TypeScript)
-│   │   └── src/
-│   │       ├── index.ts     # Express server (port 3001)
-│   │       └── planGenerator.ts
-│   └── gateway/             # API Gateway with security layers
-│       └── src/
-│           ├── index.ts
-│           └── middleware/
-│               ├── auth.ts
-│               ├── security.ts
-│               └── validate.ts
-└── packages/                # Shared packages (monorepo)
-
-## 🤖 AI Service — Endpoints
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/nutrition/generate` | Generate complete nutrition plan |
-| POST | `/workout/generate` | Generate weekly workout plan |
-| POST | `/report/analyze` | Analyze daily report + score |
-| POST | `/feedback/generate` | Personalized coach motivational message |
-| POST | `/protocol/adapt` | Adapt protocol based on weekly history |
-
-> AI Engine: **Gemini 2.0 Flash** with mock fallback (`MOCK_AI=true`)
-
-## 📱 App Screens
-
-- **LoginScreen** — Email/password authentication
-- **RegisterScreen** — Sign up with strong password validation
-- **OnboardingScreen** — 5-step profile setup (goal, level, body data, training days)
-- **HomeScreen** — Dashboard with daily stats and protocol CTA
-- **PlanScreen** — AI-generated plan (tabs: Diet + Workout)
-- **ReportScreen** — Daily report with AI score analysis
-
-## 🔐 Security
-
-- **PKCE flow** on Supabase Auth — recommended standard for mobile apps
-- **Persistent session** with automatic refresh via AsyncStorage
-- **Strong password validation** (8+ chars, uppercase, number, special character)
-- **Generic error messages** on login — no account enumeration
-- **Auth Guard** on navigator — protected routes inaccessible without valid session
-- **API Gateway** with authentication, validation and security middleware
-- **Environment variables** separated by context — never exposed in the bundle
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Mobile | React Native + Expo SDK 54 |
-| Language | TypeScript |
-| Navigation | React Navigation v7 (Native Stack) |
-| Auth & DB | Supabase |
-| AI | Gemini 2.0 Flash (Google) |
-| AI Service | Node.js + Express + TypeScript |
-| Monorepo | Turborepo |
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- Expo Go installed on your device
-- Supabase account
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/FukaiRicardo/BodyOS.git
-cd BodyOS
-
-# Install root dependencies
-npm install
-
-# Configure environment variables
-cp .env.example .env
-# Fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-
-# Start the mobile app
-cd apps/mobile
-npm install
-npx expo start
-```
-
-### AI Service
-
-```bash
-cd services/ai
-npm install
-npm run dev
-```
-
-## ⚙️ Environment Variables
-
-```env
-# Supabase
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# AI
-GEMINI_API_KEY=your_gemini_key
-MOCK_AI=true  # set to false to use real AI
-
-# App
-NODE_ENV=development
-API_BASE_URL=http://192.168.x.x:3001
-```
-
-## 📋 Roadmap
-
-- [x] Monorepo structure with Turborepo
-- [x] AI Service with 5 endpoints (Gemini 2.0 Flash)
-- [x] Full onboarding flow (5 steps)
-- [x] Dashboard (HomeScreen)
-- [x] AI-generated plan (PlanScreen)
-- [x] Daily report with AI score analysis (ReportScreen)
-- [x] Full Supabase authentication (Login + Register)
-- [ ] Persist plans and reports to database
-- [ ] Progress screen with real charts
-- [ ] Automatic protocol adaptation
-- [ ] Push notifications
-- [ ] App Store and Play Store release
-
-## 👨‍💻 Author
-
-**Ricardo Fukai** — [@FukaiRicardo](https://github.com/FukaiRicardo)
+Helping people improve fitness, nutrition and habits through personalized AI guidance.
 
 ---
 
-<p align="center">Built with 💚 and generative AI</p>
+## Vision
+
+Most health and fitness applications focus on tracking data.
+
+BodyOS focuses on helping people improve.
+
+By combining artificial intelligence, fitness, nutrition and behavioral analysis, BodyOS generates personalized recommendations designed to improve adherence, consistency and long-term health outcomes.
+
+Our mission is to make personalized health guidance accessible to anyone, anywhere in the world.
+
+---
+
+## Features
+
+### AI-Powered Workout Plans
+
+Generate personalized workout programs based on:
+
+* Goals
+* Experience level
+* Body metrics
+* Training frequency
+* Available equipment
+
+### Smart Nutrition Guidance
+
+Receive nutrition recommendations adapted to:
+
+* User preferences
+* Budget constraints
+* Local food availability
+* Fitness objectives
+
+### Daily AI Reports
+
+Track consistency and progress through:
+
+* Daily check-ins
+* Recovery analysis
+* Adherence scoring
+* Personalized recommendations
+
+### Habit Tracking
+
+Build sustainable routines through continuous monitoring and AI-driven feedback.
+
+### Adaptive Recommendations
+
+Plans evolve automatically based on:
+
+* Progress
+* User feedback
+* Training performance
+* Consistency patterns
+
+---
+
+## Long-Term Vision
+
+BodyOS is evolving from a fitness application into a complete AI-powered health operating system.
+
+Future capabilities include:
+
+* Wearable integration
+* Real-time AI coaching
+* Visual body analysis
+* Advanced health analytics
+* Predictive health insights
+* Personalized health recommendations
+
+---
+
+## Current Features
+
+* User Authentication
+* Secure Onboarding Flow
+* AI Workout Generation
+* AI Nutrition Generation
+* Daily Progress Reports
+* Personalized Feedback
+* Dashboard & Progress Tracking
+* Protocol Adaptation Engine
+
+---
+
+## Screenshots
+
+Coming Soon
+
+* Dashboard
+* Nutrition Plans
+* Workout Plans
+* AI Reports
+* Progress Analytics
+
+---
+
+## Architecture
+
+```text
+BodyOS
+├── apps
+│   └── mobile
+│       ├── authentication
+│       ├── onboarding
+│       ├── dashboard
+│       ├── plans
+│       └── reports
+│
+├── services
+│   ├── ai
+│   └── gateway
+│
+└── shared
+```
+
+### Mobile Application
+
+* React Native
+* Expo
+* TypeScript
+
+### Backend Services
+
+* Node.js
+* Express
+* API Gateway
+* Authentication Layer
+* Validation Layer
+
+### Database & Authentication
+
+* Supabase
+
+---
+
+## AI Services
+
+| Endpoint              | Description                             |
+| --------------------- | --------------------------------------- |
+| `/nutrition/generate` | Generate personalized nutrition plans   |
+| `/workout/generate`   | Generate workout protocols              |
+| `/report/analyze`     | Analyze daily reports                   |
+| `/feedback/generate`  | Generate personalized coaching feedback |
+| `/protocol/adapt`     | Adapt plans based on progress           |
+
+---
+
+## Security
+
+BodyOS follows security-first principles.
+
+Implemented protections include:
+
+* PKCE Authentication Flow
+* Secure Session Management
+* Protected Routes
+* Input Validation
+* Authentication Middleware
+* Security Middleware
+* Environment Isolation
+* Credential Protection
+
+---
+
+## Tech Stack
+
+| Layer          | Technology            |
+| -------------- | --------------------- |
+| Mobile         | React Native          |
+| Framework      | Expo                  |
+| Language       | TypeScript            |
+| Backend        | Node.js               |
+| API            | Express               |
+| Database       | Supabase              |
+| AI Integration | Large Language Models |
+| Architecture   | Turborepo Monorepo    |
+
+---
+
+## Getting Started
+
+### Requirements
+
+* Node.js 18+
+* Expo Go
+* Supabase Account
+
+### Installation
+
+```bash
+git clone https://github.com/FukaiRicardo/BodyOS.git
+
+cd BodyOS
+
+npm install
+```
+
+### Environment Setup
+
+```bash
+cp .env.example .env
+```
+
+Configure the required environment variables.
+
+### Run Mobile App
+
+```bash
+cd apps/mobile
+
+npm install
+
+npx expo start
+```
+
+### Run AI Service
+
+```bash
+cd services/ai
+
+npm install
+
+npm run dev
+```
+
+---
+
+## Roadmap
+
+### Phase 1 — MVP
+
+* [x] User Onboarding
+* [x] Authentication
+* [x] Workout Plans
+* [x] Nutrition Plans
+* [x] AI Reports
+* [x] Dashboard
+
+### Phase 2 — Public Beta
+
+* [ ] Progress Analytics
+* [ ] Smart Meal Replacement
+* [ ] Advanced AI Feedback
+* [ ] Android Public Beta
+* [ ] Expanded Exercise Library
+
+### Phase 3 — Growth
+
+* [ ] iOS Release
+* [ ] AI Coach
+* [ ] Wearable Integration
+* [ ] Visual Body Analysis
+* [ ] Advanced Analytics Dashboard
+* [ ] Premium Features
+
+### Phase 4 — Health OS
+
+* [ ] Real-Time Coaching
+* [ ] Predictive Health Insights
+* [ ] Global Food Intelligence
+* [ ] Multi-Language Expansion
+* [ ] AI Health Ecosystem
+
+---
+
+## Author
+
+Ricardo Fukai
+
+Founder and Creator of BodyOS
+
+Building AI-powered health technology focused on fitness, nutrition and habit tracking.
+
+GitHub: https://github.com/FukaiRicardo

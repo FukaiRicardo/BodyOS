@@ -26,6 +26,7 @@ export type Profile = {
   currency: string | null
   currency_symbol: string | null
   training_location: string | null
+  home_equipment: string[] | null
   created_at: string
   updated_at: string
 }
@@ -75,3 +76,4 @@ export function getSupabaseClient() {
   return supabase
 }
 // cache-bust
+

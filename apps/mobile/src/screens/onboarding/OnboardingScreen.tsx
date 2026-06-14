@@ -18,14 +18,32 @@ import { useLocation } from '../../hooks/useLocation'
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>
 
+// ─────────────────────────────────────────────────────────────
+// SEGURANÇA: Sanitização de input do usuário
+// ─────────────────────────────────────────────────────────────
+function sanitizeText(value: string, maxLength = 100): string {
+  return value
+    .replace(/[<>{}[\]\\]/g, '')
+    .slice(0, maxLength)
+    .trim()
+}
+
+function sanitizeNumeric(value: string, max = 999): string {
+  const clean = value.replace(/[^0-9.]/g, '')
+  const num = parseFloat(clean)
+  if (isNaN(num)) return clean
+  return num > max ? String(max) : clean
+}
+
 const STEPS = [
   { id: 'welcome' },
   { id: 'location' },
   { id: 'goal' },
   { id: 'level' },
-  { id: 'training_location' }, // ✅ step 4
-  { id: 'body' },              // step 5
-  { id: 'schedule' },          // step 6
+  { id: 'training_location' },
+  { id: 'home_equipment' },   // NOVO — só aparece se training_location === 'home'
+  { id: 'body' },
+  { id: 'schedule' },
 ]
 
 const DAYS = [3, 4, 5, 6]
@@ -46,9 +64,30 @@ const POPULAR_COUNTRIES = [
 const TRAINING_LOCATIONS = [
   { id: 'gym', label: 'Academia', emoji: '🏋️', desc: 'Acesso a equipamentos completos' },
   { id: 'home', label: 'Casa', emoji: '🏠', desc: 'Treino sem equipamentos ou com poucos' },
-  { id: 'martial_arts', label: 'Artes Marciais', emoji: '🥊', desc: 'Luta, jiu-jitsu, boxe, etc.' },
+  { id: 'martial_arts', label: 'Artes Marciais', emoji: '🥋', desc: 'Luta, jiu-jitsu, boxe, etc.' },
   { id: 'outdoor', label: 'Ao Ar Livre', emoji: '🌳', desc: 'Parque, rua, calistenia' },
   { id: 'sport', label: 'Esporte', emoji: '⚽', desc: 'Futebol, basquete, natação, etc.' },
+]
+
+type HomeEquipment =
+  | 'dumbbells'
+  | 'pull_up_bar'
+  | 'resistance_bands'
+  | 'kettlebell'
+  | 'bench'
+  | 'jump_rope'
+  | 'barbell'
+  | 'none'
+
+const HOME_EQUIPMENT_OPTIONS: { id: HomeEquipment; label: string; emoji: string; desc: string }[] = [
+  { id: 'none', label: 'Sem equipamentos', emoji: '🤸', desc: 'Apenas peso corporal' },
+  { id: 'dumbbells', label: 'Halteres', emoji: '🏋️', desc: 'Halteres ajustáveis ou fixos' },
+  { id: 'pull_up_bar', label: 'Barra fixa', emoji: '🔱', desc: 'Barra de porta ou parede' },
+  { id: 'resistance_bands', label: 'Elásticos', emoji: '🔗', desc: 'Faixas de resistência' },
+  { id: 'kettlebell', label: 'Kettlebell', emoji: '⚙️', desc: 'Peso russo' },
+  { id: 'bench', label: 'Banco', emoji: '🪑', desc: 'Banco plano ou regulável' },
+  { id: 'jump_rope', label: 'Corda de pular', emoji: '🪢', desc: 'Para cardio e aquecimento' },
+  { id: 'barbell', label: 'Barra + anilhas', emoji: '🏗️', desc: 'Barra olímpica com pesos' },
 ]
 
 export default function OnboardingScreen() {
@@ -60,6 +99,7 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [manualCity, setManualCity] = useState('')
+  const [homeEquipment, setHomeEquipment] = useState<HomeEquipment[]>([])
   const [form, setForm] = useState({
     goal: '',
     fitness_level: '',
@@ -76,42 +116,71 @@ export default function OnboardingScreen() {
     { id: 'muscle_gain', label: t('goals.muscle_gain'), emoji: '💪', desc: t('onboarding.goalDesc.muscle_gain') },
     { id: 'fat_loss', label: t('goals.fat_loss'), emoji: '🔥', desc: t('onboarding.goalDesc.fat_loss') },
     { id: 'maintenance', label: t('goals.maintain'), emoji: '⚖️', desc: t('onboarding.goalDesc.maintain') },
-    { id: 'performance', label: t('goals.performance'), emoji: '⚡', desc: t('onboarding.goalDesc.performance') },
+    { id: 'performance', label: t('goals.performance'), emoji: '🏆', desc: t('onboarding.goalDesc.performance') },
   ]
 
   const LEVELS = [
     { id: 'beginner', label: t('levels.beginner'), emoji: '🌱', desc: t('onboarding.levelDesc.beginner') },
-    { id: 'intermediate', label: t('levels.intermediate'), emoji: '⚡', desc: t('onboarding.levelDesc.intermediate') },
+    { id: 'intermediate', label: t('levels.intermediate'), emoji: '🏆', desc: t('onboarding.levelDesc.intermediate') },
     { id: 'advanced', label: t('levels.advanced'), emoji: '🔥', desc: t('onboarding.levelDesc.advanced') },
   ]
 
-  async function next() {
-    if (step < STEPS.length - 1) {
-      if (step === 0) {
-        detect()
+  // Steps efetivos — pula home_equipment se não for treino em casa
+  const isHomeTraining = form.training_location === 'home'
+  const effectiveSteps = STEPS.filter(s =>
+    s.id !== 'home_equipment' || isHomeTraining
+  )
+  const totalSteps = effectiveSteps.length
+  const currentStepId = effectiveSteps[step]?.id
+
+  function toggleEquipment(id: HomeEquipment) {
+    if (id === 'none') {
+      // "Sem equipamentos" desmarca tudo e marca só none
+      setHomeEquipment(['none'])
+      return
+    }
+    setHomeEquipment(prev => {
+      const without = prev.filter(e => e !== 'none') // remove none se existia
+      if (without.includes(id)) {
+        return without.filter(e => e !== id)
       }
+      return [...without, id]
+    })
+  }
+
+  async function next() {
+    if (step < totalSteps - 1) {
+      if (step === 0) detect()
       setStep(s => s + 1)
     } else {
       setSaving(true)
-      await saveProfile({
-        goal: form.goal,
-        fitness_level: form.fitness_level,
-        weekly_days: form.weekly_days,
-        training_location: form.training_location || null,
-        age: form.age ? Number(form.age) : null,
-        gender: form.gender || null,
-        height_cm: form.height_cm ? Number(form.height_cm) : null,
-        current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
-        target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
-        country: location?.country || null,
-        country_code: location?.countryCode || null,
-        city: location?.city || null,
-        region: location?.region || null,
-        currency: location?.currency || 'USD',
-        currency_symbol: location?.currencySymbol || '$',
-      })
-      setSaving(false)
-      navigation.navigate('Home', { profile: { ...form, location } } as any)
+      try {
+        await saveProfile({
+          goal: sanitizeText(form.goal),
+          fitness_level: sanitizeText(form.fitness_level),
+          weekly_days: form.weekly_days,
+          training_location: sanitizeText(form.training_location) || null,
+          home_equipment: isHomeTraining && homeEquipment.length > 0
+            ? homeEquipment
+            : null,
+          age: form.age ? Number(form.age) : null,
+          gender: form.gender ? sanitizeText(form.gender) : null,
+          height_cm: form.height_cm ? Number(form.height_cm) : null,
+          current_weight_kg: form.current_weight_kg ? Number(form.current_weight_kg) : null,
+          target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
+          country: location?.country || null,
+          country_code: location?.countryCode || null,
+          city: location?.city || null,
+          region: location?.region || null,
+          currency: location?.currency || 'USD',
+          currency_symbol: location?.currencySymbol || '$',
+        })
+        navigation.navigate('Home', { profile: { ...form, location } } as any)
+      } catch (e) {
+        console.error('Erro ao salvar perfil:', e)
+      } finally {
+        setSaving(false)
+      }
     }
   }
 
@@ -120,21 +189,22 @@ export default function OnboardingScreen() {
   }
 
   const canNext = () => {
-    if (step === 1) return true
-    if (step === 2) return !!form.goal
-    if (step === 3) return !!form.fitness_level
-    if (step === 4) return !!form.training_location
-    if (step === 5) return !!form.age && !!form.current_weight_kg && !!form.height_cm
+    if (currentStepId === 'location') return true
+    if (currentStepId === 'goal') return !!form.goal
+    if (currentStepId === 'level') return !!form.fitness_level
+    if (currentStepId === 'training_location') return !!form.training_location
+    if (currentStepId === 'home_equipment') return homeEquipment.length > 0
+    if (currentStepId === 'body') return !!form.age && !!form.current_weight_kg && !!form.height_cm
     return true
   }
 
-  const progress = step > 0 ? ((step) / (STEPS.length - 1)) * 100 : 0
+  const progress = step > 0 ? (step / (totalSteps - 1)) * 100 : 0
 
   const bodyFields = [
-    { label: t('onboarding.age'), key: 'age', placeholder: t('onboarding.agePlaceholder'), unit: t('onboarding.ageUnit') },
-    { label: t('onboarding.height'), key: 'height_cm', placeholder: t('onboarding.heightPlaceholder'), unit: 'cm' },
-    { label: t('onboarding.weight'), key: 'current_weight_kg', placeholder: t('onboarding.weightPlaceholder'), unit: 'kg' },
-    { label: t('onboarding.targetWeight'), key: 'target_weight_kg', placeholder: t('onboarding.targetWeightPlaceholder'), unit: 'kg' },
+    { label: t('onboarding.age'), key: 'age', placeholder: t('onboarding.agePlaceholder'), unit: t('onboarding.ageUnit'), max: 120 },
+    { label: t('onboarding.height'), key: 'height_cm', placeholder: t('onboarding.heightPlaceholder'), unit: 'cm', max: 300 },
+    { label: t('onboarding.weight'), key: 'current_weight_kg', placeholder: t('onboarding.weightPlaceholder'), unit: 'kg', max: 400 },
+    { label: t('onboarding.targetWeight'), key: 'target_weight_kg', placeholder: t('onboarding.targetWeightPlaceholder'), unit: 'kg', max: 400 },
   ]
 
   return (
@@ -144,14 +214,14 @@ export default function OnboardingScreen() {
           <View style={s.progressBg}>
             <View style={[s.progressFill, { width: `${progress}%` }]} />
           </View>
-          <Text style={s.progressText}>{step}/{STEPS.length - 1}</Text>
+          <Text style={s.progressText}>{step}/{totalSteps - 1}</Text>
         </View>
       )}
 
       <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
 
-        {/* Step 0 — Welcome */}
-        {step === 0 && (
+        {/* Step: Welcome */}
+        {currentStepId === 'welcome' && (
           <View style={s.centerContent}>
             <Text style={s.logo}>BodyOS</Text>
             <Text style={s.tagline}>{t('onboarding.tagline')}</Text>
@@ -160,7 +230,7 @@ export default function OnboardingScreen() {
                 { emoji: '🏋️', text: t('onboarding.feature1') },
                 { emoji: '🥗', text: t('onboarding.feature2') },
                 { emoji: '📊', text: t('onboarding.feature3') },
-                { emoji: '🔄', text: t('onboarding.feature4') },
+                { emoji: '🤖', text: t('onboarding.feature4') },
               ].map((f, i) => (
                 <View key={i} style={s.featureRow}>
                   <Text style={s.featureEmoji}>{f.emoji}</Text>
@@ -171,8 +241,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 1 — Localização */}
-        {step === 1 && (
+        {/* Step: Localização */}
+        {currentStepId === 'location' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>📍 Onde você está?</Text>
             <Text style={s.stepSubtitle}>
@@ -190,7 +260,7 @@ export default function OnboardingScreen() {
             {locationStatus === 'success' && location && (
               <View style={s.locationSuccessCard}>
                 <View style={s.locationSuccessHeader}>
-                  <Text style={s.locationCheckmark}>✓</Text>
+                  <Text style={s.locationCheckmark}>✅</Text>
                   <Text style={s.locationDetectedLabel}>Localização detectada</Text>
                 </View>
                 <Text style={s.locationCity}>
@@ -247,10 +317,12 @@ export default function OnboardingScreen() {
                         placeholder="Ex: São Paulo"
                         placeholderTextColor="#555"
                         value={manualCity}
+                        maxLength={100}
                         onChangeText={v => {
-                          setManualCity(v)
+                          const clean = sanitizeText(v, 100)
+                          setManualCity(clean)
                           if (location) {
-                            setManual({ country: location.country, countryCode: location.countryCode, city: v })
+                            setManual({ country: location.country, countryCode: location.countryCode, city: clean })
                           }
                         }}
                       />
@@ -274,8 +346,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 2 — Goal */}
-        {step === 2 && (
+        {/* Step: Goal */}
+        {currentStepId === 'goal' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.goal')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.goalSubtitle')}</Text>
@@ -295,8 +367,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 3 — Level */}
-        {step === 3 && (
+        {/* Step: Level */}
+        {currentStepId === 'level' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.level')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.levelSubtitle')}</Text>
@@ -312,15 +384,15 @@ export default function OnboardingScreen() {
                     <Text style={[s.optionLabel, form.fitness_level === l.id && s.optionLabelActive]}>{l.label}</Text>
                     <Text style={s.optionDesc}>{l.desc}</Text>
                   </View>
-                  {form.fitness_level === l.id && <Text style={s.check}>✓</Text>}
+                  {form.fitness_level === l.id && <Text style={s.check}>✅</Text>}
                 </TouchableOpacity>
               ))}
             </View>
           </View>
         )}
 
-        {/* Step 4 — Training Location ✅ NOVO */}
-        {step === 4 && (
+        {/* Step: Training Location */}
+        {currentStepId === 'training_location' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>🏋️ Onde você treina?</Text>
             <Text style={s.stepSubtitle}>Isso personaliza seus exercícios e recomendações</Text>
@@ -329,22 +401,84 @@ export default function OnboardingScreen() {
                 <TouchableOpacity
                   key={l.id}
                   style={[s.levelCard, form.training_location === l.id && s.optionCardActive]}
-                  onPress={() => setForm(f => ({ ...f, training_location: l.id }))}
+                  onPress={() => {
+                    setForm(f => ({ ...f, training_location: l.id }))
+                    // Reseta equipamentos ao trocar local
+                    if (l.id !== 'home') setHomeEquipment([])
+                  }}
                 >
                   <Text style={s.optionEmoji}>{l.emoji}</Text>
                   <View style={s.levelInfo}>
                     <Text style={[s.optionLabel, form.training_location === l.id && s.optionLabelActive]}>{l.label}</Text>
                     <Text style={s.optionDesc}>{l.desc}</Text>
                   </View>
-                  {form.training_location === l.id && <Text style={s.check}>✓</Text>}
+                  {form.training_location === l.id && <Text style={s.check}>✅</Text>}
                 </TouchableOpacity>
               ))}
             </View>
           </View>
         )}
 
-        {/* Step 5 — Body data */}
-        {step === 5 && (
+        {/* Step: Home Equipment — só aparece se training_location === 'home' */}
+        {currentStepId === 'home_equipment' && (
+          <View style={s.stepContent}>
+            <Text style={s.stepTitle}>🏠 Quais equipamentos você tem?</Text>
+            <Text style={s.stepSubtitle}>
+              Selecione tudo que você tem disponível em casa. A IA vai adaptar os exercícios exatamente para isso.
+            </Text>
+
+            <View style={s.equipmentHint}>
+              <Text style={s.equipmentHintText}>
+                💡 Selecione "Sem equipamentos" se treinar só com peso corporal
+              </Text>
+            </View>
+
+            <View style={s.optionsList}>
+              {HOME_EQUIPMENT_OPTIONS.map(eq => {
+                const isSelected = homeEquipment.includes(eq.id)
+                const isDisabled = eq.id !== 'none' && homeEquipment.includes('none')
+                return (
+                  <TouchableOpacity
+                    key={eq.id}
+                    style={[
+                      s.levelCard,
+                      isSelected && s.optionCardActive,
+                      isDisabled && s.levelCardDisabled,
+                    ]}
+                    onPress={() => !isDisabled && toggleEquipment(eq.id)}
+                    disabled={isDisabled}
+                  >
+                    <Text style={s.optionEmoji}>{eq.emoji}</Text>
+                    <View style={s.levelInfo}>
+                      <Text style={[s.optionLabel, isSelected && s.optionLabelActive, isDisabled && s.optionLabelDisabled]}>
+                        {eq.label}
+                      </Text>
+                      <Text style={s.optionDesc}>{eq.desc}</Text>
+                    </View>
+                    <View style={[s.checkbox, isSelected && s.checkboxActive]}>
+                      {isSelected && <Text style={s.checkboxCheck}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+
+            {homeEquipment.length > 0 && !homeEquipment.includes('none') && (
+              <View style={s.selectedEquipmentCard}>
+                <Text style={s.selectedEquipmentTitle}>✅ Selecionados:</Text>
+                <Text style={s.selectedEquipmentList}>
+                  {homeEquipment
+                    .map(id => HOME_EQUIPMENT_OPTIONS.find(e => e.id === id)?.label)
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Step: Body data */}
+        {currentStepId === 'body' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.bodyTitle')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.bodySubtitle')}</Text>
@@ -373,8 +507,12 @@ export default function OnboardingScreen() {
                     placeholder={field.placeholder}
                     placeholderTextColor="#555"
                     keyboardType="numeric"
+                    maxLength={6}
                     value={(form as any)[field.key]}
-                    onChangeText={v => setForm(f => ({ ...f, [field.key]: v }))}
+                    onChangeText={v => {
+                      const clean = sanitizeNumeric(v, field.max)
+                      setForm(f => ({ ...f, [field.key]: clean }))
+                    }}
                   />
                   <Text style={s.inputUnit}>{field.unit}</Text>
                 </View>
@@ -383,8 +521,8 @@ export default function OnboardingScreen() {
           </View>
         )}
 
-        {/* Step 6 — Schedule */}
-        {step === 6 && (
+        {/* Step: Schedule */}
+        {currentStepId === 'schedule' && (
           <View style={s.stepContent}>
             <Text style={s.stepTitle}>{t('onboarding.weeklyDays')}</Text>
             <Text style={s.stepSubtitle}>{t('onboarding.weeklyDaysSubtitle')}</Text>
@@ -407,6 +545,12 @@ export default function OnboardingScreen() {
                 { label: t('home.profileGoal'), value: GOALS.find(g => g.id === form.goal)?.label },
                 { label: t('home.profileLevel'), value: LEVELS.find(l => l.id === form.fitness_level)?.label },
                 { label: '🏋️ Local de Treino', value: TRAINING_LOCATIONS.find(l => l.id === form.training_location)?.label },
+                ...(isHomeTraining && homeEquipment.length > 0 ? [{
+                  label: '🏠 Equipamentos',
+                  value: homeEquipment.includes('none')
+                    ? 'Sem equipamentos'
+                    : homeEquipment.map(id => HOME_EQUIPMENT_OPTIONS.find(e => e.id === id)?.label).filter(Boolean).join(', '),
+                }] : []),
                 { label: t('onboarding.trainingDays'), value: `${form.weekly_days}x ${t('onboarding.perWeek')}` },
                 { label: t('home.profileWeight'), value: form.current_weight_kg ? `${form.current_weight_kg}kg` : '-' },
                 { label: t('onboarding.height'), value: form.height_cm ? `${form.height_cm}cm` : '-' },
@@ -438,7 +582,7 @@ export default function OnboardingScreen() {
             : <Text style={s.btnNextText}>
                 {step === 0
                   ? t('onboarding.start')
-                  : step === STEPS.length - 1
+                  : step === totalSteps - 1
                     ? t('onboarding.generate')
                     : t('onboarding.continue')}
               </Text>
@@ -504,11 +648,21 @@ const s = StyleSheet.create({
   optionEmoji: { fontSize: 32 },
   optionLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
   optionLabelActive: { color: '#00FF87' },
+  optionLabelDisabled: { color: '#444460' },
   optionDesc: { fontSize: 12, color: '#A0A0B0', textAlign: 'center' },
   optionsList: { gap: 12 },
   levelCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 14, borderWidth: 2, borderColor: 'transparent' },
+  levelCardDisabled: { opacity: 0.4 },
   levelInfo: { flex: 1 },
   check: { color: '#00FF87', fontSize: 20, fontWeight: '800' },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#2A2A4E', alignItems: 'center', justifyContent: 'center' },
+  checkboxActive: { backgroundColor: '#00FF87', borderColor: '#00FF87' },
+  checkboxCheck: { color: '#0A0A0F', fontSize: 14, fontWeight: '800' },
+  equipmentHint: { backgroundColor: '#0D1A2E', borderRadius: 12, padding: 12, borderLeftWidth: 3, borderLeftColor: '#60A5FA' },
+  equipmentHintText: { color: '#60A5FA', fontSize: 13, lineHeight: 18 },
+  selectedEquipmentCard: { backgroundColor: '#0D2E1A', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#00FF8740', gap: 6 },
+  selectedEquipmentTitle: { color: '#00FF87', fontSize: 13, fontWeight: '700' },
+  selectedEquipmentList: { color: '#A0A0B0', fontSize: 13, lineHeight: 20 },
   genderRow: { flexDirection: 'row', gap: 12 },
   genderBtn: { flex: 1, backgroundColor: '#1A1A2E', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   genderBtnActive: { borderColor: '#00FF87', backgroundColor: '#0D2E1A' },
@@ -529,7 +683,7 @@ const s = StyleSheet.create({
   summaryTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
   summaryLabel: { color: '#A0A0B0', fontSize: 14 },
-  summaryValue: { color: '#00FF87', fontSize: 14, fontWeight: '600' },
+  summaryValue: { color: '#00FF87', fontSize: 14, fontWeight: '600', flex: 1, textAlign: 'right' },
   footer: { flexDirection: 'row', padding: 24, gap: 12 },
   btnBack: { paddingVertical: 18, paddingHorizontal: 20, borderRadius: 16, backgroundColor: '#1A1A2E', alignItems: 'center' },
   btnBackText: { color: '#A0A0B0', fontSize: 15, fontWeight: '600' },

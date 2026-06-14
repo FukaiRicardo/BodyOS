@@ -6,11 +6,12 @@ import { Request, Response, NextFunction } from 'express'
 const ALLOWED_ORIGINS = [
   'https://bodyos.app',
   'https://www.bodyos.app',
-  'https://dist-ten-gamma-27.vercel.app',
+  'https://bodyos-web.vercel.app',
   ...(process.env.NODE_ENV === 'development'
     ? ['http://localhost:8081', 'http://localhost:3000', 'http://localhost:8082']
     : []),
 ]
+
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {

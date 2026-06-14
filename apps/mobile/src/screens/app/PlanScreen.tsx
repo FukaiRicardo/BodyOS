@@ -6,11 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
-import { useAuth } from '../../context/AuthContext'
-import { API_CONFIG } from '../../config/api'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
+
+const AI_SERVICE_URL = 'https://bodyos-ai-service.onrender.com'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -25,7 +25,6 @@ export default function PlanScreen() {
   const profile = route.params?.profile
   const { savePlan, loadLatestPlan, loadProfile } = useDatabase()
   const { t, i18n } = useTranslation()
-  const { session } = useAuth()
 
   const [loading, setLoading] = useState(false)
   const [loadingExisting, setLoadingExisting] = useState(true)
@@ -61,66 +60,60 @@ export default function PlanScreen() {
   }, [])
 
   async function generatePlan() {
-  setLoading(true)
-  setError('')
+    setLoading(true)
+    setError('')
 
-  const { data: fullProfile } = await loadProfile()
+    // Carrega perfil completo do banco (inclui localização)
+    const { data: fullProfile } = await loadProfile()
 
-  const locales = Localization.getLocales()
-  const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt'
-  const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
+    const locales = Localization.getLocales()
+    const currentLang = locales[0]?.languageCode || i18n.language?.split('-')[0] || 'pt'
+    const deviceLanguage = ['pt', 'en', 'ja', 'es'].includes(currentLang) ? currentLang : 'en'
 
-  // ✅ Usa fullProfile para tudo, com fallback para route.params como segurança
-  const source = fullProfile ?? profile
-
-const bodyData = {
-  goal: source?.goal ?? 'muscle_gain',
-  fitness_level: source?.fitness_level ?? 'intermediate',
-  weekly_days: source?.weekly_days ?? 4,
-  current_weight_kg: source?.current_weight_kg ? Number(source.current_weight_kg) : undefined,
-  height_cm: source?.height_cm ? Number(source.height_cm) : undefined,
-  age: source?.age ? Number(source.age) : undefined,
-  gender: source?.gender,
-  language: deviceLanguage,
-  training_location: source?.training_location ?? 'gym',  
-  location: fullProfile?.country ? {
-  country: fullProfile.country,
-  countryCode: fullProfile.country_code,
-  city: fullProfile.city,
-  region: fullProfile.region,
-  currency: fullProfile.currency,
-  currencySymbol: fullProfile.currency_symbol,
-} : undefined,
-}
-
-  console.log('🏠 training_location que vai ser enviado:', bodyData.training_location)
-console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
+    const bodyData = {
+      goal: profile?.goal ?? 'muscle_gain',
+      fitness_level: profile?.fitness_level ?? 'intermediate',
+      weekly_days: profile?.weekly_days ?? 4,
+      current_weight_kg: profile?.current_weight_kg ? Number(profile.current_weight_kg) : undefined,
+      height_cm: profile?.height_cm ? Number(profile.height_cm) : undefined,
+      age: profile?.age ? Number(profile.age) : undefined,
+      gender: profile?.gender,
+      language: deviceLanguage,
+      location: fullProfile ? {
+        country: fullProfile.country,
+        countryCode: fullProfile.country_code,
+        city: fullProfile.city,
+        region: fullProfile.region,
+        currency: fullProfile.currency,
+        currencySymbol: fullProfile.currency_symbol,
+      } : undefined,
+    }
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session?.access_token ?? ''}`
+      'X-API-Key': process.env.EXPO_PUBLIC_AI_API_KEY ?? ''
     }
 
     try {
       // 1. Gera Dieta
-      const dietRes = await fetch(API_CONFIG.getFullUrl('nutrition'), {
+      const dietRes = await fetch(`${AI_SERVICE_URL}/nutrition/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
       })
-      if (!dietRes.ok) throw new Error(`Erro na dieta: ${dietRes.status}`)
+      if (!dietRes.ok) throw new Error("Erro na dieta")
       const nutritionRaw = await dietRes.json()
 
       // 2. Pausa para evitar Rate Limit
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
-      const workoutRes = await fetch(API_CONFIG.getFullUrl('workout'), {
+      const workoutRes = await fetch(`${AI_SERVICE_URL}/workout/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
       })
-      if (!workoutRes.ok) throw new Error(`Erro no treino: ${workoutRes.status}`)
+      if (!workoutRes.ok) throw new Error("Erro no treino")
       const workoutRaw = await workoutRes.json()
 
       const nutritionData = nutritionRaw.data ?? nutritionRaw
@@ -147,43 +140,6 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
 
   function formatWater(ml: number): string {
     return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`
-  }
-
-  const nutritionDayLabel: Record<string, string> = {
-    monday: t('plan.days.mon'),
-    tuesday: t('plan.days.tue'),
-    wednesday: t('plan.days.wed'),
-    thursday: t('plan.days.thu'),
-    friday: t('plan.days.fri'),
-    saturday: t('plan.days.sat'),
-    sunday: t('plan.days.sun'),
-  }
-
-  function getNutritionSections() {
-    const weeklyMenu = plan?.nutrition?.weekly_menu
-    if (weeklyMenu) {
-      return [
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday',
-      ].map((day) => ({
-        key: day,
-        title: nutritionDayLabel[day],
-        dayType: weeklyMenu[day]?.day_type,
-        meals: weeklyMenu[day]?.meals ?? [],
-      })).filter(section => section.meals.length > 0)
-    }
-
-    return [{
-      key: 'legacy',
-      title: '',
-      dayType: undefined,
-      meals: plan?.nutrition?.meals ?? [],
-    }]
   }
 
   return (
@@ -276,16 +232,8 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
             )}
 
             <Text style={s.sectionTitle}>{t('plan.meals')}</Text>
-            {getNutritionSections().map((section) => (
-              <View key={section.key} style={s.daySection}>
-                {!!section.title && (
-                  <Text style={s.daySectionTitle}>
-                    {section.title}
-                    {section.dayType ? ` · ${section.dayType}` : ''}
-                  </Text>
-                )}
-                {section.meals.map((meal: any, i: number) => (
-              <View key={`${section.key}-${i}`} style={s.mealCard}>
+            {plan.nutrition.meals?.map((meal: any, i: number) => (
+              <View key={i} style={s.mealCard}>
                 <View style={s.mealHeader}>
                   <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '🍴'}</Text>
                   <View style={s.mealInfo}>
@@ -304,47 +252,11 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
                     <Text style={s.foodDetail}>{food.quantity_g || food.quantity}g · {food.calories} kcal</Text>
                   </View>
                 ))}
-               
-{meal.protein_options?.length > 0 && (
-  <View style={s.proteinSection}>
-    <Text style={s.proteinTitle}>💪 Opções de Proteína</Text>
-    {meal.protein_options.map((p: any, j: number) => (
-      <View key={j} style={s.proteinRow}>
-        <View style={s.foodNameWrap}>
-          <Text style={s.proteinName}>{p.name}</Text>
-          {p.unit_description && (
-            <Text style={s.foodUnit}>{p.unit_description}</Text>
-          )}
-        </View>
-        <Text style={s.proteinDetail}>{p.quantity_g}g · {p.calories} kcal · {p.protein_g}g prot</Text>
-      </View>
-    ))}
-  </View>
-)}
-{meal.food_alternatives?.length > 0 && (
-  <View style={s.altSection}>
-    <Text style={s.altTitle}>🔄 Alternativas</Text>
-    {meal.food_alternatives.map((alt: any, j: number) => (
-      <View key={j} style={s.altRow}>
-        <View style={s.foodNameWrap}>
-          <Text style={s.altName}>{alt.food_name}</Text>
-          <Text style={s.foodUnit}>substitui: {alt.replaces} · {alt.reason}</Text>
-        </View>
-        <Text style={s.altDetail}>{alt.quantity_g}g · {alt.calories} kcal</Text>
-      </View>
-    ))}
-  </View>
-)}
-
-
-            
                 {meal.estimated_cost != null && (
                   <Text style={s.mealCost}>
-                    💰 {plan.nutrition.currency_symbol ?? ''}{Math.round(meal.estimated_cost)}
+                    💰 {plan.nutrition.currency_symbol ?? ''}{meal.estimated_cost.toFixed(2)} {plan.nutrition.currency ?? ''}
                   </Text>
                 )}
-              </View>
-                ))}
               </View>
             ))}
 
@@ -356,35 +268,27 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
             )}
 
             {plan.nutrition.supplements?.length > 0 && (
-  <>
-    <Text style={s.sectionTitle}>{t('plan.supplements')}</Text>
-    {plan.nutrition.supplements.map((sup: any, i: number) => (
-      <View key={i} style={s.supCard}>
-        <View style={s.supHeader}>
-          <Text style={s.supName}>💊 {sup.name}</Text>
-          {sup.priority && (
-            <View style={[s.supBadge, {
-              backgroundColor: sup.priority === 'essential' ? '#0D2E1A' : sup.priority === 'recommended' ? '#0D1A2E' : '#1A1A2E'
-            }]}>
-              <Text style={[s.supBadgeText, {
-                color: sup.priority === 'essential' ? '#00FF87' : sup.priority === 'recommended' ? '#60A5FA' : '#A0A0B0'
-              }]}>
-                {sup.priority === 'essential' ? '✅ Essencial' : sup.priority === 'recommended' ? '👍 Recomendado' : '⚪ Opcional'}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={s.supDetail}>{sup.dose}</Text>
-        <Text style={s.supTiming}>⏰ {sup.timing}</Text>
-      </View>
-    ))}
-  </>
-)}
+              <>
+                <Text style={s.sectionTitle}>{t('plan.supplements')}</Text>
+                {plan.nutrition.supplements.map((sup: any, i: number) => (
+                  <View key={i} style={s.supRow}>
+                    <Text style={s.supName}>💊 {sup.name}</Text>
+                    <Text style={s.supDetail}>{sup.dose} · {sup.timing}</Text>
+                  </View>
+                ))}
+              </>
+            )}
 
-  </View>
-  )}
+            {(plan.nutrition.nutritionist_notes || plan.nutrition.notes) && (
+              <View style={s.notesCard}>
+                <Text style={s.notesTitle}>📋 {t('plan.nutritionistNotes')}</Text>
+                <Text style={s.notesText}>{plan.nutrition.nutritionist_notes || plan.nutrition.notes}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
-  {plan && tab === 'workout' && plan.workout && (
+        {plan && tab === 'workout' && plan.workout && (
           <View style={s.content}>
             <View style={s.workoutHeader}>
               <Text style={s.workoutName}>{plan.workout.name}</Text>
@@ -449,8 +353,8 @@ const s = StyleSheet.create({
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   emptyText: { fontSize: 16, color: '#A0A0B0', textAlign: 'center', lineHeight: 24 },
-  loadingBox: { alignItems: 'center', paddingTop: 40, gap: 24, marginBottom: 40 },
-  loadingText: { color: '#A0A0B0', fontSize: 16, textAlign: 'center'  },
+  loadingBox: { alignItems: 'center', paddingTop: 80, gap: 24 },
+  loadingText: { color: '#A0A0B0', fontSize: 16 },
   savingBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, backgroundColor: '#0D2E1A' },
   savingText: { color: '#00FF87', fontSize: 13 },
   error: { color: '#FF6B6B', textAlign: 'center', marginTop: 32, fontSize: 14, paddingHorizontal: 24 },
@@ -465,8 +369,6 @@ const s = StyleSheet.create({
   hydrationAmount: { fontSize: 20, fontWeight: '800', color: '#60A5FA' },
   hydrationSub: { fontSize: 13, color: '#A0A0B0', fontWeight: '400' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginTop: 8 },
-  daySection: { gap: 10 },
-  daySectionTitle: { fontSize: 14, fontWeight: '700', color: '#00FF87', marginTop: 4 },
   mealCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 8 },
   mealHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
   mealIcon: { fontSize: 28 },
@@ -504,19 +406,4 @@ const s = StyleSheet.create({
   footer: { padding: 24 },
   btn: { backgroundColor: '#00FF87', paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
   btnText: { color: '#0A0A0F', fontSize: 17, fontWeight: '700' },
-  proteinSection: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#2A2A3E', paddingTop: 8, gap: 6 },
-proteinTitle: { fontSize: 12, fontWeight: '700', color: '#00FF87', marginBottom: 4 },
-proteinRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 },
-proteinName: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-proteinDetail: { fontSize: 12, color: '#60A5FA' },
-altSection: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#2A2A3E', paddingTop: 8, gap: 6 },
-altTitle: { fontSize: 12, fontWeight: '700', color: '#F59E0B', marginBottom: 4 },
-altRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 4 },
-altName: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
-altDetail: { fontSize: 12, color: '#F59E0B' },
-supCard: { backgroundColor: '#1A1A2E', borderRadius: 14, padding: 16, gap: 6 },
-supHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-supBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-supBadgeText: { fontSize: 11, fontWeight: '600' },
-supTiming: { fontSize: 12, color: '#555570', fontStyle: 'italic' },
 })

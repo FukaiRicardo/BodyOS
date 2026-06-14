@@ -315,40 +315,52 @@ export function DatabaseProvider({
       // INPUT IA — only send necessary metadata, not full plans
 
       const adaptationInput = {
-        user_profile: {
-          goal: profile.goal,
-          fitness_level:
-            profile.fitness_level,
-          weekly_days:
-            profile.weekly_days,
-          current_weight_kg:
-            profile.current_weight_kg,
-          height_cm:
-            profile.height_cm,
-          age: profile.age,
-          gender: profile.gender,
+        goal: profile.goal,
+        fitness_level:
+          profile.fitness_level,
+        weekly_days:
+          profile.weekly_days,
+        current_weight_kg:
+          profile.current_weight_kg,
+        height_cm:
+          profile.height_cm,
+        age: profile.age,
+        gender: profile.gender,
+        location: profile.country
+          ? {
+              country: profile.country,
+              countryCode: profile.country_code,
+              city: profile.city,
+              region: profile.region,
+              currency: profile.currency,
+              currencySymbol:
+                profile.currency_symbol,
+            }
+          : undefined,
+        history: {
+          weeks_on_plan: Math.ceil(
+            reportsResult.data.length / 7
+          ),
+          current_plan: {
+            nutrition_session_count:
+              plan.nutrition_plan?.meals?.length ??
+              plan.nutrition_plan?.weekly_menu?.monday?.meals?.length ??
+              0,
+            workout_session_count:
+              plan.workout_plan?.sessions?.length ?? 0,
+          },
+          reports: reportsResult.data.map(
+            (r) => ({
+              date: r.date,
+              workout_completed:
+                r.workout_completed,
+              energy_level:
+                r.energy_level,
+              adherence_percent:
+                r.adherence_percent,
+            })
+          ),
         },
-
-        current_plan: {
-          nutrition_session_count: plan.nutrition_plan?.meals?.length ?? 0,
-          workout_session_count: plan.workout_plan?.sessions?.length ?? 0,
-        },
-
-        reports: reportsResult.data.map(
-          (r) => ({
-            date: r.date,
-            workout_completed:
-              r.workout_completed,
-            energy_level:
-              r.energy_level,
-            adherence_percent:
-              r.adherence_percent,
-          })
-        ),
-
-        weeks_on_plan: Math.ceil(
-          reportsResult.data.length / 7
-        ),
       }
 
       // FETCH IA with 30s timeout

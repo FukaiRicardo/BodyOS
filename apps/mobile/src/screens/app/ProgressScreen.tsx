@@ -49,10 +49,14 @@ export default function ProgressScreen() {
     return `${day}/${month}`
   }
 
-  const scoreData = reports.filter(r => r.analysis?.overall_score != null)
+  function getReportScore(report: Report): number | null {
+    return report.analysis?.overall_score ?? report.analysis?.score ?? null
+  }
+
+  const scoreData = reports.filter(r => getReportScore(r) != null)
   const scoreChartData = {
     labels: scoreData.slice(-7).map(r => formatDate(r.date)),
-    datasets: [{ data: scoreData.slice(-7).map(r => r.analysis.overall_score) }],
+    datasets: [{ data: scoreData.slice(-7).map(r => getReportScore(r) ?? 0) }],
   }
 
   const weightData = reports.filter(r => r.weight_kg != null)
@@ -72,8 +76,9 @@ export default function ProgressScreen() {
 
   const totalDays = reports.length
   const trainedDays = reports.filter(r => r.workout_completed).length
-  const avgScore = reports.length > 0
-    ? Math.round(reports.filter(r => r.analysis?.overall_score).reduce((sum, r) => sum + r.analysis.overall_score, 0) / reports.filter(r => r.analysis?.overall_score).length)
+  const reportsWithScore = reports.filter(r => getReportScore(r) != null)
+  const avgScore = reportsWithScore.length > 0
+    ? Math.round(reportsWithScore.reduce((sum, r) => sum + (getReportScore(r) ?? 0), 0) / reportsWithScore.length)
     : 0
   const avgAdherence = reports.length > 0
     ? Math.round(reports.reduce((sum, r) => sum + r.adherence_percent, 0) / reports.length)
@@ -241,7 +246,7 @@ export default function ProgressScreen() {
                   <Text style={s.reportStat}>💪 {report.workout_completed ? t('report.yes') : t('report.no')}</Text>
                 </View>
                 <View style={s.reportRight}>
-                  {report.analysis?.overall_score != null && (
+                  {getReportScore(report) != null && (
                     <View style={[s.scoreBadge, {
                       backgroundColor: report.analysis.alert_level === 'green'
                         ? '#0D2E1A' : report.analysis.alert_level === 'yellow'
@@ -252,7 +257,7 @@ export default function ProgressScreen() {
                           ? '#00FF88' : report.analysis.alert_level === 'yellow'
                           ? '#F59E0B' : '#F87171'
                       }]}>
-                        {report.analysis.overall_score}
+                        {getReportScore(report)}
                       </Text>
                     </View>
                   )}

@@ -7,11 +7,10 @@ import * as Localization from 'expo-localization'
 import { RootStackParamList } from '../../../App'
 import { useDatabase } from '../../context/DatabaseContext'
 import { useAuth } from '../../context/AuthContext'
+import { API_CONFIG } from '../../config/api'
 
 type Nav = any
 type Route = RouteProp<RootStackParamList, 'Plan'>
-
-const GATEWAY_URL = process.env.EXPO_PUBLIC_GATEWAY_URL ?? 'http://192.168.0.205:3000'
 
 const mealIcon: Record<string, string> = {
   breakfast: '🍳',
@@ -104,7 +103,7 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
 
     try {
       // 1. Gera Dieta
-      const dietRes = await fetch(`${GATEWAY_URL}/api/nutrition/generate`, {
+      const dietRes = await fetch(API_CONFIG.getFullUrl('nutrition'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
@@ -116,7 +115,7 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
       await new Promise(resolve => setTimeout(resolve, 1200))
 
       // 3. Gera Treino
-      const workoutRes = await fetch(`${GATEWAY_URL}/api/workout/generate`, {
+      const workoutRes = await fetch(API_CONFIG.getFullUrl('workout'), {
         method: 'POST',
         headers,
         body: JSON.stringify(bodyData),
@@ -148,6 +147,43 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
 
   function formatWater(ml: number): string {
     return ml >= 1000 ? `${(ml / 1000).toFixed(1)}L` : `${ml}ml`
+  }
+
+  const nutritionDayLabel: Record<string, string> = {
+    monday: t('plan.days.mon'),
+    tuesday: t('plan.days.tue'),
+    wednesday: t('plan.days.wed'),
+    thursday: t('plan.days.thu'),
+    friday: t('plan.days.fri'),
+    saturday: t('plan.days.sat'),
+    sunday: t('plan.days.sun'),
+  }
+
+  function getNutritionSections() {
+    const weeklyMenu = plan?.nutrition?.weekly_menu
+    if (weeklyMenu) {
+      return [
+        'monday',
+        'tuesday',
+        'wednesday',
+        'thursday',
+        'friday',
+        'saturday',
+        'sunday',
+      ].map((day) => ({
+        key: day,
+        title: nutritionDayLabel[day],
+        dayType: weeklyMenu[day]?.day_type,
+        meals: weeklyMenu[day]?.meals ?? [],
+      })).filter(section => section.meals.length > 0)
+    }
+
+    return [{
+      key: 'legacy',
+      title: '',
+      dayType: undefined,
+      meals: plan?.nutrition?.meals ?? [],
+    }]
   }
 
   return (
@@ -240,8 +276,16 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
             )}
 
             <Text style={s.sectionTitle}>{t('plan.meals')}</Text>
-            {plan.nutrition.meals?.map((meal: any, i: number) => (
-              <View key={i} style={s.mealCard}>
+            {getNutritionSections().map((section) => (
+              <View key={section.key} style={s.daySection}>
+                {!!section.title && (
+                  <Text style={s.daySectionTitle}>
+                    {section.title}
+                    {section.dayType ? ` · ${section.dayType}` : ''}
+                  </Text>
+                )}
+                {section.meals.map((meal: any, i: number) => (
+              <View key={`${section.key}-${i}`} style={s.mealCard}>
                 <View style={s.mealHeader}>
                   <Text style={s.mealIcon}>{mealIcon[meal.meal_type] ?? '🍴'}</Text>
                   <View style={s.mealInfo}>
@@ -299,6 +343,8 @@ console.log('📦 bodyData sendo enviado:', JSON.stringify(bodyData, null, 2))
                     💰 {plan.nutrition.currency_symbol ?? ''}{Math.round(meal.estimated_cost)}
                   </Text>
                 )}
+              </View>
+                ))}
               </View>
             ))}
 
@@ -419,6 +465,8 @@ const s = StyleSheet.create({
   hydrationAmount: { fontSize: 20, fontWeight: '800', color: '#60A5FA' },
   hydrationSub: { fontSize: 13, color: '#A0A0B0', fontWeight: '400' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginTop: 8 },
+  daySection: { gap: 10 },
+  daySectionTitle: { fontSize: 14, fontWeight: '700', color: '#00FF87', marginTop: 4 },
   mealCard: { backgroundColor: '#1A1A2E', borderRadius: 16, padding: 16, gap: 8 },
   mealHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
   mealIcon: { fontSize: 28 },

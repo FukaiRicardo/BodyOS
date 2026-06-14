@@ -144,6 +144,10 @@ const aiLimiter = rateLimit({
 
 const AI_API_KEY = process.env.AI_API_KEY
 
+if (process.env.NODE_ENV === 'production' && !AI_API_KEY) {
+  throw new Error('AI_API_KEY is required in production')
+}
+
 function timingSafeCompare(a: string, b: string): boolean {
   try {
     const bufA = Buffer.from(a)

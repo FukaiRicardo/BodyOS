@@ -9,6 +9,20 @@ import { createLogger, createContextLogger as sharedCreateContextLogger, createL
 dotenv.config()
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
 
+const requiredProductionEnv = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'AI_SERVICE_URL',
+  'AI_API_KEY',
+] as const
+
+if (process.env.NODE_ENV === 'production') {
+  const missingEnv = requiredProductionEnv.filter((name) => !process.env[name])
+  if (missingEnv.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`)
+  }
+}
+
 const logger = createLogger('bodyos-gateway')
 const log = createLogHelpers(logger)
 

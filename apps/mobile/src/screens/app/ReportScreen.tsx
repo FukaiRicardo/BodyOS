@@ -156,11 +156,19 @@ useEffect(() => {
           ).then(r => r.json()),
         ])
 
-    const result = {
-  analysis: analysis.data ?? analysis,
-  clientFeedback:
-    clientFeedback.data ?? clientFeedback,
-}
+      const normalizedAnalysis = analysis.data ?? analysis
+      if (
+        normalizedAnalysis?.score != null &&
+        normalizedAnalysis.overall_score == null
+      ) {
+        normalizedAnalysis.overall_score = normalizedAnalysis.score
+      }
+
+      const result = {
+        analysis: normalizedAnalysis,
+        clientFeedback:
+          clientFeedback.data ?? clientFeedback,
+      }
       setFeedback(result)
 
       await saveReport({
